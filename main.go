@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/keptn-contrib/prometheus-sli-service/lib/prometheus"
 	"gopkg.in/yaml.v2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net/url"
 	"os"
@@ -21,6 +20,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	keptnevents "github.com/keptn/go-utils/pkg/events"
 	keptnutils "github.com/keptn/go-utils/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const configservice = "CONFIGURATION_SERVICE"
@@ -79,25 +80,34 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 }
 
 func retrieveMetrics(event cloudevents.Event) error {
+	var shkeptncontext string
+	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
 	eventData := &keptnevents.InternalGetSLIEventData{}
 	err := event.DataAs(eventData)
+	if err != nil {
+		return err
+	}
+
+	// don't continue if SLIProvider != prometheus
+	if eventData.SLIProvider != "prometheus" {
+		return nil
+	}
+
+	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
+
+	stdLogger.Info("Retrieving prometheus metrics")
+	kubeClient, err := keptnutils.GetKubeAPI(true)
+	if err != nil {
+		stdLogger.Error("could not create kube client")
+		return errors.New("could not create kube client")
+	}
+	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, stdLogger, kubeClient)
 
 	if err != nil {
 		return err
 	}
 
-	prometheusApiURL, err := getPrometheusApiURL(eventData.Project)
-
-	if err != nil {
-		return err
-	}
-
-	prometheusHandler, err := prometheus.NewPrometheusHandler(
-		prometheusApiURL,
-		eventData.Project,
-		eventData.Stage,
-		eventData.Service,
-	)
+	prometheusHandler, err := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
 
 	if err != nil {
 		return err
@@ -106,24 +116,35 @@ func retrieveMetrics(event cloudevents.Event) error {
 	var sliResults []*keptnevents.SLIResult
 
 	for _, indicator := range eventData.Indicators {
+		stdLogger.Info("Fetching indicator: " + indicator)
 		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End)
-		if err == nil {
+		if err != nil {
 			sliResults = append(sliResults, &keptnevents.SLIResult{
-				Metric: indicator,
-				Value:  sliValue,
+				Metric:  indicator,
+				Value:   0,
+				Success: false,
+				Message: err.Error(),
+			})
+		} else {
+			sliResults = append(sliResults, &keptnevents.SLIResult{
+				Metric:  indicator,
+				Value:   sliValue,
+				Success: true,
 			})
 		}
 	}
-	return nil
+	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Stage, eventData.Service, sliResults)
 }
 
-func getPrometheusApiURL(project string) (string, error) {
+func getPrometheusApiURL(project string, logger *keptnutils.Logger, kubeClient v1.CoreV1Interface) (string, error) {
+	logger.Info("Checking if external prometheus instance has been defined for project " + project)
 	// check if secret 'prometheus-credentials-<project> exists
-	kubeClient, err := keptnutils.GetKubeAPI(true)
-	secret, err := kubeClient.Secrets("keptn").Get("prometheus-credentials-"+project, v1.GetOptions{})
+
+	secret, err := kubeClient.Secrets("keptn").Get("prometheus-credentials-"+project, metav1.GetOptions{})
 
 	// return cluster-internal prometheus URL if no secret has been found
 	if err != nil {
+		logger.Info("No external prometheus instance defined for project " + project + ". Using default: http://prometheus-service.monitoring.svc.cluster.local:8080")
 		return "http://prometheus-service.monitoring.svc.cluster.local:8080", nil
 	}
 
@@ -133,27 +154,38 @@ func getPrometheusApiURL(project string) (string, error) {
 		user: string
 		password: string
 	*/
-	var pc prometheusCredentials
+	pc := &prometheusCredentials{}
 	err = yaml.Unmarshal(secret.Data["prometheus-credentials"], pc)
 
 	if err != nil {
+		logger.Error("Could not parse credentials for external prometheus instance: " + err.Error())
 		return "", errors.New("invalid credentials format found in secret 'prometheus-credentials-" + project)
 	}
-
-	prometheusURL := pc.URL
-
-	if strings.HasPrefix(prometheusURL, "https://") && pc.User != "" && pc.Password != "" {
-		prometheusURL = strings.TrimPrefix(prometheusURL, "https://")
-		prometheusURL = "https://" + url.QueryEscape(pc.User) + ":" + url.QueryEscape(pc.Password) + "@" + prometheusURL
-	} else if strings.HasPrefix(prometheusURL, "http://") {
-		prometheusURL = strings.TrimPrefix(prometheusURL, "http://")
-		prometheusURL = "http://" + url.QueryEscape(pc.User) + ":" + url.QueryEscape(pc.Password) + "@" + prometheusURL
-	} else {
-		// assume https transport
-		prometheusURL = "https://" + url.QueryEscape(pc.User) + ":" + url.QueryEscape(pc.Password) + "@" + prometheusURL
-	}
+	logger.Info("Using external prometheus instance for project " + project + ": " + pc.URL)
+	prometheusURL := generatePrometheusURL(pc)
 
 	return prometheusURL, nil
+}
+
+func generatePrometheusURL(pc *prometheusCredentials) string {
+	prometheusURL := pc.URL
+
+	credentialsString := ""
+
+	if pc.User != "" && pc.Password != "" {
+		credentialsString = url.QueryEscape(pc.User) + ":" + url.QueryEscape(pc.Password) + "@"
+	}
+	if strings.HasPrefix(prometheusURL, "https://") {
+		prometheusURL = strings.TrimPrefix(prometheusURL, "https://")
+		prometheusURL = "https://" + credentialsString + prometheusURL
+	} else if strings.HasPrefix(prometheusURL, "http://") {
+		prometheusURL = strings.TrimPrefix(prometheusURL, "http://")
+		prometheusURL = "http://" + credentialsString + prometheusURL
+	} else {
+		// assume https transport
+		prometheusURL = "https://" + credentialsString + prometheusURL
+	}
+	return prometheusURL
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,

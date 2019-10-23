@@ -10,7 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
+
+	keptnevents "github.com/keptn/go-utils/pkg/events"
 )
 
 const Throughput = "throughput"
@@ -33,23 +36,25 @@ type prometheusResponse struct {
 
 // Handler interacts with a prometheus API endpoint
 type Handler struct {
-	ApiURL     string
-	Username   string
-	Password   string
-	Project    string
-	Stage      string
-	Service    string
-	HTTPClient *http.Client
+	ApiURL        string
+	Username      string
+	Password      string
+	Project       string
+	Stage         string
+	Service       string
+	HTTPClient    *http.Client
+	CustomFilters []*keptnevents.SLIFilter
 }
 
 // NewPrometheusHandler returns a new prometheus handler that interacts with the Prometheus REST API
-func NewPrometheusHandler(apiURL string, project string, stage string, service string) (*Handler, error) {
+func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptnevents.SLIFilter) (*Handler, error) {
 	ph := &Handler{
-		ApiURL:     apiURL,
-		Project:    project,
-		Stage:      stage,
-		Service:    service,
-		HTTPClient: &http.Client{},
+		ApiURL:        apiURL,
+		Project:       project,
+		Stage:         stage,
+		Service:       service,
+		HTTPClient:    &http.Client{},
+		CustomFilters: customFilters,
 	}
 
 	return ph, nil
@@ -181,7 +186,7 @@ func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
 		}
 	*/
 	// TODO: allow user-defined custom metrics
-	return "rate(http_requests_total{" + filterExpr + ", status!~'2..'}[" + durationString + "])/rate(http_requests_total{" + filterExpr + "}[" + durationString + "])"
+	return "sum(rate(http_requests_total{" + filterExpr + ",status!~'2..'}[" + durationString + "]))/sum(rate(http_requests_total{" + filterExpr + "}[" + durationString + "]))"
 }
 
 func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, end time.Time) string {
@@ -211,7 +216,35 @@ func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, en
 }
 
 func (ph *Handler) getDefaultFilterExpression() string {
-	return "job='" + ph.Service + "-" + ph.Project + "-" + ph.Stage + "'"
+	filterExpression := "job='" + ph.Service + "-" + ph.Project + "-" + ph.Stage + "'"
+	if ph.CustomFilters != nil && len(ph.CustomFilters) > 0 {
+		for _, filter := range ph.CustomFilters {
+			/* if no operator has been included in the label filter, use exact matching (=), e.g.
+			e.g.:
+			key: handler
+			value: ItemsController
+			*/
+			if !strings.HasPrefix(filter.Value, "=") && !strings.HasPrefix(filter.Value, "!=") && !strings.HasPrefix(filter.Value, "=~") && !strings.HasPrefix(filter.Value, "!~") {
+				filter.Value = strings.Replace(filter.Value, "'", "", -1)
+				filter.Value = strings.Replace(filter.Value, "\"", "", -1)
+				filterExpression = filterExpression + "," + filter.Key + "='" + filter.Value + "'"
+			} else {
+				/* if a valid operator (=, !=, =~, !~) is prepended to the value, use that one
+				e.g.:
+				key: handler
+				value: !=HealthCheckController
+
+				OR
+
+				key: handler
+				value: =~.+ItemsController|.+VersionController
+				*/
+				filter.Value = strings.Replace(filter.Value, "\"", "'", -1)
+				filterExpression = filterExpression + "," + filter.Key + filter.Value
+			}
+		}
+	}
+	return filterExpression
 }
 
 func parseUnixTimestamp(timestamp string) (time.Time, error) {
