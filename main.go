@@ -94,7 +94,6 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
-
 	stdLogger.Info("Retrieving prometheus metrics")
 	kubeClient, err := keptnutils.GetKubeAPI(true)
 	if err != nil {
