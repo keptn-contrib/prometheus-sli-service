@@ -185,7 +185,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 		// assume https transport
 		prometheusURL = "https://" + credentialsString + prometheusURL
 	}
-	return prometheusURL
+	return strings.Replace(prometheusURL, " ", "", -1)
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,

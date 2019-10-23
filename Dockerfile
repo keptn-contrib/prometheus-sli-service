@@ -11,7 +11,7 @@ COPY . .
 ENV GO111MODULE=on
 
 RUN go mod download
-
+RUN go test ./...
 # Build the command inside the container.
 # (You may fetch or manage dependencies here, either manually or with a tool like "godep".)
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o prometheus-sli-service
