@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -128,10 +129,33 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 }
 
 func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
+	if os.Getenv("THROUGHPUT_QUERY") != "" {
+		query := os.Getenv("THROUGHPUT_QUERY")
+		query = ph.replaceQueryParameters(query, start, end)
+		return query
+	}
+	return ph.getDefaultThroughputQuery(start, end)
+}
+
+func (ph *Handler) replaceQueryParameters(query string, start time.Time, end time.Time) string {
+	query = strings.Replace(query, "$PROJECT", ph.Project, -1)
+	query = strings.Replace(query, "$STAGE", ph.Stage, -1)
+	query = strings.Replace(query, "$SERVICE", ph.Service, -1)
+	for _, filter := range ph.CustomFilters {
+		filter.Value = strings.Replace(filter.Value, "'", "", -1)
+		filter.Value = strings.Replace(filter.Value, "\"", "", -1)
+		query = strings.Replace(query, "$"+filter.Key, filter.Value, -1)
+	}
+	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
+
+	query = strings.Replace(query, "$DURATION_SECONDS", durationString, -1)
+	return query
+}
+
+func (ph *Handler) getDefaultThroughputQuery(start time.Time, end time.Time) string {
 	filterExpr := ph.getDefaultFilterExpression()
 	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 	// e.g. sum(rate(http_requests_total{job="carts-sockshop-dev"}[30m]))&time=1571649085
-
 	/*
 		{
 		    "status": "success",
@@ -149,15 +173,22 @@ func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
 		    }
 		}
 	*/
-	// TODO: allow user-defined custom metrics
 	return "sum(rate(http_requests_total{" + filterExpr + "}[" + durationString + "]))"
 }
 
 func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
+	if os.Getenv("ERROR_RATE_QUERY") != "" {
+		query := os.Getenv("ERROR_RATE_QUERY")
+		query = ph.replaceQueryParameters(query, start, end)
+		return query
+	}
+	return ph.getDefaultErrorRateQuery(start, end)
+}
+
+func (ph *Handler) getDefaultErrorRateQuery(start time.Time, end time.Time) string {
 	filterExpr := ph.getDefaultFilterExpression()
 	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 	// e.g. sum(rate(http_requests_total{job="carts-sockshop-dev",status!~'2..'}[30m]))/sum(rate(http_requests_total{job="carts-sockshop-dev"}[30m]))&time=1571649085
-
 	/*
 		with value:
 		{
@@ -190,10 +221,18 @@ func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
 }
 
 func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, end time.Time) string {
+	if os.Getenv("REQUEST_LATENCY_P"+percentile+"_QUERY") != "" {
+		query := os.Getenv("REQUEST_LATENCY_P" + percentile + "_QUERY")
+		query = ph.replaceQueryParameters(query, start, end)
+		return query
+	}
+	return ph.getDefaultRequestLatencyQuery(start, end, percentile)
+}
+
+func (ph *Handler) getDefaultRequestLatencyQuery(start time.Time, end time.Time, percentile string) string {
 	filterExpr := ph.getDefaultFilterExpression()
 	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 	// e.g. histogram_quantile(0.95, sum(rate(http_response_time_milliseconds_bucket{job='carts-sockshop-dev'}[30m])) by (le))&time=1571649085
-
 	/*
 		{
 		    "status": "success",

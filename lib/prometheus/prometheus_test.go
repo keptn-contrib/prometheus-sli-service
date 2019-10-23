@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -64,6 +65,28 @@ func TestGetErrorRateQueryWithFilter(t *testing.T) {
 	}
 }
 
+func TestGetCustomErrorRateQueryWithFilter(t *testing.T) {
+
+	var customFilters []*keptnevents.SLIFilter
+	os.Setenv("ERROR_RATE_QUERY", "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[1s]))")
+	customFilters = append(customFilters, &keptnevents.SLIFilter{
+		Key:   "handler",
+		Value: "'ItemsController'",
+	})
+
+	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+
+	start := time.Unix(1571649084, 0)
+	end := time.Unix(1571649085, 0)
+	query := ph.getErrorRateQuery(start, end)
+
+	expectedQuery := "sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController'}[1s]))"
+
+	if strings.Compare(strings.Replace(query, " ", "", -1), strings.Replace(expectedQuery, " ", "", -1)) != 0 {
+		t.Errorf("Expected query did not match: \n expected: " + expectedQuery + "\n got: " + query)
+	}
+}
+
 func TestGetThroughputQuery(t *testing.T) {
 	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
 
@@ -78,6 +101,28 @@ func TestGetThroughputQuery(t *testing.T) {
 	}
 }
 
+func TestGetCustomThroughputQueryWithFilter(t *testing.T) {
+
+	var customFilters []*keptnevents.SLIFilter
+	os.Setenv("THROUGHPUT_QUERY", "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[1s]))")
+	customFilters = append(customFilters, &keptnevents.SLIFilter{
+		Key:   "handler",
+		Value: "'ItemsController'",
+	})
+
+	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+
+	start := time.Unix(1571649084, 0)
+	end := time.Unix(1571649085, 0)
+	query := ph.getThroughputQuery(start, end)
+
+	expectedQuery := "sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController'}[1s]))"
+
+	if strings.Compare(strings.Replace(query, " ", "", -1), strings.Replace(expectedQuery, " ", "", -1)) != 0 {
+		t.Errorf("Expected query did not match: \n expected: " + expectedQuery + "\n got: " + query)
+	}
+}
+
 func TestGetRequestLatencyQuery(t *testing.T) {
 	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
 
@@ -86,6 +131,28 @@ func TestGetRequestLatencyQuery(t *testing.T) {
 	query := ph.getRequestLatencyQuery("95", start, end)
 
 	expectedQuery := "histogram_quantile(0.95,sum(rate(http_response_time_milliseconds_bucket{job='carts-sockshop-dev'}[1s]))by(le))"
+
+	if strings.Compare(strings.Replace(query, " ", "", -1), strings.Replace(expectedQuery, " ", "", -1)) != 0 {
+		t.Errorf("Expected query did not match: \n expected: " + expectedQuery + "\n got: " + query)
+	}
+}
+
+func TestGetCustomRequestLatencyQueryWithFilter(t *testing.T) {
+
+	var customFilters []*keptnevents.SLIFilter
+	os.Setenv("REQUEST_LATENCY_P50_QUERY", "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[$DURATION_SECONDS]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))")
+	customFilters = append(customFilters, &keptnevents.SLIFilter{
+		Key:   "handler",
+		Value: "'ItemsController'",
+	})
+
+	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+
+	start := time.Unix(1571649084, 0)
+	end := time.Unix(1571649085, 0)
+	query := ph.getRequestLatencyQuery("50", start, end)
+
+	expectedQuery := "sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController'}[1s]))"
 
 	if strings.Compare(strings.Replace(query, " ", "", -1), strings.Replace(expectedQuery, " ", "", -1)) != 0 {
 		t.Errorf("Expected query did not match: \n expected: " + expectedQuery + "\n got: " + query)

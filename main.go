@@ -34,9 +34,9 @@ type envConfig struct {
 }
 
 type prometheusCredentials struct {
-	URL      string `json:"url",yaml:"url"`
-	User     string `json:"user",yaml:"user"`
-	Password string `json:"user",yaml:"user"`
+	URL      string `json:"url" yaml:"url"`
+	User     string `json:"user" yaml:"user"`
+	Password string `json:"user" yaml:"user"`
 }
 
 func main() {
