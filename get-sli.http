@@ -6,7 +6,7 @@
 # * 'ptr' and 'ptrp' create a POST request with a simple or parameter-like body;
 # * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
 
-POST http://localhost:8080/
+POST http://localhost:8081/
 Accept: application/json
 Cache-Control: no-cache
 Content-Type: application/cloudevents+json
@@ -20,7 +20,7 @@ Content-Type: application/cloudevents+json
     "stage": "dev",
     "start": "2019-10-20T07:57:27.152330783Z",
     "end": "2019-10-22T08:57:27.152330783Z",
-    "indicators": ["throughput", "error_rate", "request_latency_p50"]
+    "indicators": ["throughput", "error_rate", "request_latency_p50", "request_latency_p90", "request_latency_p95"]
   },
   "id": "b3c3c357-eb3d-4f90-b26e-9ebfedfb8dbf",
   "source": "jmeter-service",

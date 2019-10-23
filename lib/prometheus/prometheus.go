@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -70,7 +70,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64
 	if err != nil {
 		return 0, err
 	}
-	queryString := ph.ApiURL + "/api/v1/query?query=" + query + "&time=" + strconv.FormatInt(endUnix.Unix(), 10)
+	queryString := ph.ApiURL + "/api/v1/query?query=" + url.QueryEscape(query) + "&time=" + strconv.FormatInt(endUnix.Unix(), 10)
 	req, err := http.NewRequest("GET", queryString, nil)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -85,7 +85,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64
 		return 0, errors.New("metric could not be received")
 	}
 
-	var prometheusResult prometheusResponse
+	prometheusResult := &prometheusResponse{}
 
 	err = json.Unmarshal(body, prometheusResult)
 	if err != nil {
@@ -99,7 +99,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64
 
 	parsedValue := fmt.Sprintf("%v", prometheusResult.Data.Result[0].Value[1])
 	floatValue, err := strconv.ParseFloat(parsedValue, 64)
-	if err == nil {
+	if err != nil {
 		return 0, nil
 	}
 	return floatValue, nil
@@ -116,7 +116,7 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 	case RequestLatencyP90:
 		return ph.getRequestLatencyQuery("90", start, end), nil
 	case RequestLatencyP95:
-		return ph.getRequestLatencyQuery("95", end, end), nil
+		return ph.getRequestLatencyQuery("95", start, end), nil
 	default:
 		return "", errors.New("unsupported SLI")
 	}
@@ -124,7 +124,7 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 
 func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
 	filterExpr := ph.getDefaultFilterExpression()
-	durationString := strings.TrimPrefix(strconv.FormatInt(getDurationInSeconds(start, end), 10), "+") + "s"
+	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 	// e.g. sum(rate(http_requests_total{job="carts-sockshop-dev"}[30m]))&time=1571649085
 
 	/*
@@ -145,12 +145,12 @@ func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
 		}
 	*/
 	// TODO: allow user-defined custom metrics
-	return "sum(rate(http_requests_total{" + filterExpr + "}[+" + durationString + "]))"
+	return "sum(rate(http_requests_total{" + filterExpr + "}[" + durationString + "]))"
 }
 
 func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
 	filterExpr := ph.getDefaultFilterExpression()
-	durationString := strings.TrimPrefix(strconv.FormatInt(getDurationInSeconds(start, end), 10), "+") + "s"
+	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 	// e.g. sum(rate(http_requests_total{job="carts-sockshop-dev",status!~'2..'}[30m]))/sum(rate(http_requests_total{job="carts-sockshop-dev"}[30m]))&time=1571649085
 
 	/*
@@ -181,12 +181,12 @@ func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
 		}
 	*/
 	// TODO: allow user-defined custom metrics
-	return "rate(http_requests_total{" + filterExpr + ", status!~'2..'}[+" + durationString + "]) / rate(http_requests_total{" + filterExpr + "}[+" + durationString + "])"
+	return "rate(http_requests_total{" + filterExpr + ", status!~'2..'}[" + durationString + "])/rate(http_requests_total{" + filterExpr + "}[" + durationString + "])"
 }
 
 func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, end time.Time) string {
 	filterExpr := ph.getDefaultFilterExpression()
-	durationString := strings.TrimPrefix(strconv.FormatInt(getDurationInSeconds(start, end), 10), "+") + "s"
+	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 	// e.g. histogram_quantile(0.95, sum(rate(http_response_time_milliseconds_bucket{job='carts-sockshop-dev'}[30m])) by (le))&time=1571649085
 
 	/*
@@ -207,11 +207,11 @@ func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, en
 		}
 	*/
 	// TODO: allow user-defined custom metrics
-	return "histogram_quantile(0." + percentile + ",sum(rate(http_response_time_milliseconds_bucket{" + filterExpr + "}[+" + durationString + "])) by (le)"
+	return "histogram_quantile(0." + percentile + ",sum(rate(http_response_time_milliseconds_bucket{" + filterExpr + "}[" + durationString + "]))by(le))"
 }
 
 func (ph *Handler) getDefaultFilterExpression() string {
-	return "job='" + ph.Project + "-" + ph.Stage + "-" + ph.Service + "'"
+	return "job='" + ph.Service + "-" + ph.Project + "-" + ph.Stage + "'"
 }
 
 func parseUnixTimestamp(timestamp string) (time.Time, error) {
