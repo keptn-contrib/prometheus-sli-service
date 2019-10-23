@@ -1,6 +1,6 @@
 sudo: true
 dist: xenial
-language: go
+language: bash
 services:
   - docker
 before_install:
