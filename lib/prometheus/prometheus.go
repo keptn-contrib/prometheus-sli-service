@@ -9,7 +9,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -35,6 +34,15 @@ type prometheusResponse struct {
 	} `json:"data"`
 }
 
+// CustomQueryConfig allows to override the queries used to retrieve the SLI values from Prometheus
+type CustomQueryConfig struct {
+	ThroughputQuery        string `json:"throughputQuery" yaml:"throughputQuery"`
+	ErrorRateQuery         string `json:"errorRateQuery" yaml:"errorRateQuery"`
+	RequestLatencyP50Query string `json:"requestLatencyP50Query" yaml:"requestLatencyP50Query"`
+	RequestLatencyP90Query string `json:"requestLatencyP90Query" yaml:"requestLatencyP90Query"`
+	RequestLatencyP95Query string `json:"requestLatencyP95Query" yaml:"requestLatencyP95Query"`
+}
+
 // Handler interacts with a prometheus API endpoint
 type Handler struct {
 	ApiURL        string
@@ -45,10 +53,11 @@ type Handler struct {
 	Service       string
 	HTTPClient    *http.Client
 	CustomFilters []*keptnevents.SLIFilter
+	CustomQueries *CustomQueryConfig
 }
 
 // NewPrometheusHandler returns a new prometheus handler that interacts with the Prometheus REST API
-func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptnevents.SLIFilter) (*Handler, error) {
+func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptnevents.SLIFilter) *Handler {
 	ph := &Handler{
 		ApiURL:        apiURL,
 		Project:       project,
@@ -58,7 +67,7 @@ func NewPrometheusHandler(apiURL string, project string, stage string, service s
 		CustomFilters: customFilters,
 	}
 
-	return ph, nil
+	return ph
 }
 
 func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64, error) {
@@ -129,8 +138,8 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 }
 
 func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
-	if os.Getenv("THROUGHPUT_QUERY") != "" {
-		query := os.Getenv("THROUGHPUT_QUERY")
+	if ph.CustomQueries != nil && ph.CustomQueries.ThroughputQuery != "" {
+		query := ph.CustomQueries.ThroughputQuery
 		query = ph.replaceQueryParameters(query, start, end)
 		return query
 	}
@@ -177,8 +186,8 @@ func (ph *Handler) getDefaultThroughputQuery(start time.Time, end time.Time) str
 }
 
 func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
-	if os.Getenv("ERROR_RATE_QUERY") != "" {
-		query := os.Getenv("ERROR_RATE_QUERY")
+	if ph.CustomQueries != nil && ph.CustomQueries.ErrorRateQuery != "" {
+		query := ph.CustomQueries.ErrorRateQuery
 		query = ph.replaceQueryParameters(query, start, end)
 		return query
 	}
@@ -221,10 +230,25 @@ func (ph *Handler) getDefaultErrorRateQuery(start time.Time, end time.Time) stri
 }
 
 func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, end time.Time) string {
-	if os.Getenv("REQUEST_LATENCY_P"+percentile+"_QUERY") != "" {
-		query := os.Getenv("REQUEST_LATENCY_P" + percentile + "_QUERY")
-		query = ph.replaceQueryParameters(query, start, end)
-		return query
+	if ph.CustomQueries != nil {
+		query := ""
+		switch percentile {
+		case "50":
+			query = ph.CustomQueries.RequestLatencyP50Query
+			break
+		case "90":
+			query = ph.CustomQueries.RequestLatencyP90Query
+			break
+		case "95":
+			query = ph.CustomQueries.RequestLatencyP95Query
+			break
+		default:
+			query = ""
+		}
+		if query != "" {
+			query = ph.replaceQueryParameters(query, start, end)
+			return query
+		}
 	}
 	return ph.getDefaultRequestLatencyQuery(start, end, percentile)
 }

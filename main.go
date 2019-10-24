@@ -36,7 +36,7 @@ type envConfig struct {
 type prometheusCredentials struct {
 	URL      string `json:"url" yaml:"url"`
 	User     string `json:"user" yaml:"user"`
-	Password string `json:"user" yaml:"user"`
+	Password string `json:"password" yaml:"password"`
 }
 
 func main() {
@@ -100,16 +100,23 @@ func retrieveMetrics(event cloudevents.Event) error {
 		stdLogger.Error("could not create kube client")
 		return errors.New("could not create kube client")
 	}
-	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, stdLogger, kubeClient)
+	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient, stdLogger)
 
 	if err != nil {
 		return err
 	}
 
-	prometheusHandler, err := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
+	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
+
+	// check if custom queries are stored for the project
+	customQueries, err := getCustomQueries(eventData.Project, kubeClient, stdLogger)
 
 	if err != nil {
 		return err
+	}
+
+	if customQueries != nil {
+		prometheusHandler.CustomQueries = customQueries
 	}
 
 	var sliResults []*keptnevents.SLIResult
@@ -135,7 +142,28 @@ func retrieveMetrics(event cloudevents.Event) error {
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Stage, eventData.Service, sliResults)
 }
 
-func getPrometheusApiURL(project string, logger *keptnutils.Logger, kubeClient v1.CoreV1Interface) (string, error) {
+func getCustomQueries(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (*prometheus.CustomQueryConfig, error) {
+	logger.Info("Checking for custom SLI queries for project " + project)
+
+	configMap, err := kubeClient.ConfigMaps("keptn").Get("prometheus-metric-config-"+project, metav1.GetOptions{})
+	if err != nil {
+		logger.Info("No custom queries defined for project " + project)
+		return nil, nil
+	}
+
+	customQueries := &prometheus.CustomQueryConfig{}
+	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), customQueries)
+
+	if err != nil {
+		logger.Info("Custom queries found for project " + project + ", but could not parse them: " + err.Error())
+		return nil, err
+	}
+	logger.Info("Custom queries found for project " + project)
+	return customQueries, nil
+
+}
+
+func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, error) {
 	logger.Info("Checking if external prometheus instance has been defined for project " + project)
 	// check if secret 'prometheus-credentials-<project> exists
 

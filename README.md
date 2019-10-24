@@ -61,10 +61,38 @@ Please note that there is a naming convention for the secret, because this can b
 
 ### Overriding SLI queries
 
+Users can override the predefined queries for the supported SLIs by creating a `ConfigMap` with the name `prometheus-metric-config-<project>` in the `keptn` namespace.
+In this ConfigMap, a YAML object containing the queries can be defined, e.g.:
 
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: prometheus-metric-config-sockshop
+  namespace: keptn
+data:
+  custom-queries: |
+    throughputQuery: "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])"
+    errorRateQuery: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
+    requestLatencyP50Query: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    requestLatencyP90Query: "histogram_quantile(0.90,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    requestLatencyP95Query: "histogram_quantile(0.95,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+```
 
-    
-    
+Note that, similarly, to the custom endpoint configuration, the name of the ConfigMap has to be `prometheus-metric-config-<project>`, and has to be stored in the `keptn` namespace.
+
+Within the user-defined queries, the following variables can be used to dynamically build the query, depending on the project/stage/service, and the time frame:
+
+- $PROJECT: will be replaced with the name of the project
+- $STAGE: will be replaced with the name of the stage
+- $SERVICE: will be replaced with the name of the service
+- $DURATION_SECONDS: will be replaced with the test run duration, e.g. 30s
+
+For example, if an evaluation for the service **carts**  in the stage **production** of the project **sockshop** is triggered, and the tests ran for 30s these will be the resulting queries:
+
+```
+rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]) => rate(my_custom_metric{job='carts-sockshop-production',handler=~'$handler'}[30s])
+```
 
 ## Installation
 

@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -30,7 +29,7 @@ func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
 }
 
 func TestGetErrorRateQueryWithoutFilter(t *testing.T) {
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
@@ -52,7 +51,7 @@ func TestGetErrorRateQueryWithFilter(t *testing.T) {
 		Value: "=~'ItemsController'",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
@@ -68,13 +67,19 @@ func TestGetErrorRateQueryWithFilter(t *testing.T) {
 func TestGetCustomErrorRateQueryWithFilter(t *testing.T) {
 
 	var customFilters []*keptnevents.SLIFilter
-	os.Setenv("ERROR_RATE_QUERY", "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[1s]))")
+
+	customQueries := &CustomQueryConfig{
+		ErrorRateQuery: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[$DURATION_SECONDS]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))",
+	}
+
 	customFilters = append(customFilters, &keptnevents.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+
+	ph.CustomQueries = customQueries
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
@@ -88,7 +93,7 @@ func TestGetCustomErrorRateQueryWithFilter(t *testing.T) {
 }
 
 func TestGetThroughputQuery(t *testing.T) {
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
@@ -104,19 +109,24 @@ func TestGetThroughputQuery(t *testing.T) {
 func TestGetCustomThroughputQueryWithFilter(t *testing.T) {
 
 	var customFilters []*keptnevents.SLIFilter
-	os.Setenv("THROUGHPUT_QUERY", "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[1s]))")
+
+	customQueries := &CustomQueryConfig{
+		ThroughputQuery: "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])",
+	}
+
 	customFilters = append(customFilters, &keptnevents.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph.CustomQueries = customQueries
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
 	query := ph.getThroughputQuery(start, end)
 
-	expectedQuery := "sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController'}[1s]))"
+	expectedQuery := "rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController'}[1s])"
 
 	if strings.Compare(strings.Replace(query, " ", "", -1), strings.Replace(expectedQuery, " ", "", -1)) != 0 {
 		t.Errorf("Expected query did not match: \n expected: " + expectedQuery + "\n got: " + query)
@@ -124,7 +134,7 @@ func TestGetCustomThroughputQueryWithFilter(t *testing.T) {
 }
 
 func TestGetRequestLatencyQuery(t *testing.T) {
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", nil)
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
@@ -140,19 +150,25 @@ func TestGetRequestLatencyQuery(t *testing.T) {
 func TestGetCustomRequestLatencyQueryWithFilter(t *testing.T) {
 
 	var customFilters []*keptnevents.SLIFilter
-	os.Setenv("REQUEST_LATENCY_P50_QUERY", "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[$DURATION_SECONDS]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))")
+
+	customQueries := &CustomQueryConfig{
+		RequestLatencyP50Query: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))",
+	}
+
 	customFilters = append(customFilters, &keptnevents.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+
+	ph.CustomQueries = customQueries
 
 	start := time.Unix(1571649084, 0)
 	end := time.Unix(1571649085, 0)
 	query := ph.getRequestLatencyQuery("50", start, end)
 
-	expectedQuery := "sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='carts-sockshop-dev',handler=~'ItemsController'}[1s]))"
+	expectedQuery := "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='carts-sockshop-dev'}[1s]))by(le))"
 
 	if strings.Compare(strings.Replace(query, " ", "", -1), strings.Replace(expectedQuery, " ", "", -1)) != 0 {
 		t.Errorf("Expected query did not match: \n expected: " + expectedQuery + "\n got: " + query)
@@ -168,7 +184,7 @@ func TestGetDefaultFilterExpression(t *testing.T) {
 		Value: "ItemsController",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
 
 	filterExpression := ph.getDefaultFilterExpression()
 
@@ -188,7 +204,7 @@ func TestGetDefaultFilterExpressionWithOperand(t *testing.T) {
 		Value: "!='ItemsController'",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
 
 	filterExpression := ph.getDefaultFilterExpression()
 
@@ -208,7 +224,7 @@ func TestGetDefaultFilterExpressionWithSingleQuote(t *testing.T) {
 		Value: "'ItemsController'",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
 
 	filterExpression := ph.getDefaultFilterExpression()
 
@@ -228,7 +244,7 @@ func TestGetDefaultFilterExpressionWithDoubleQuote(t *testing.T) {
 		Value: "\"ItemsController\"",
 	})
 
-	ph, _ := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
+	ph := NewPrometheusHandler("prometheus", "sockshop", "dev", "carts", customFilters)
 
 	filterExpression := ph.getDefaultFilterExpression()
 
@@ -264,7 +280,7 @@ func TestGetSLIValue(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	ph, _ := NewPrometheusHandler("http://prometheus", "sockshop", "dev", "carts", nil)
+	ph := NewPrometheusHandler("http://prometheus", "sockshop", "dev", "carts", nil)
 	ph.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
@@ -291,7 +307,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	ph, _ := NewPrometheusHandler("http://prometheus", "sockshop", "dev", "carts", nil)
+	ph := NewPrometheusHandler("http://prometheus", "sockshop", "dev", "carts", nil)
 	ph.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
@@ -310,7 +326,7 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 	httpClient, teardown := testingHTTPClient(h)
 	defer teardown()
 
-	ph, _ := NewPrometheusHandler("http://prometheus", "sockshop", "dev", "carts", nil)
+	ph := NewPrometheusHandler("http://prometheus", "sockshop", "dev", "carts", nil)
 	ph.HTTPClient = httpClient
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
