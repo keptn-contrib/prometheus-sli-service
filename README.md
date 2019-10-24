@@ -14,7 +14,7 @@ The supported SLIs are:
  
 The provided SLIs are based on the [RED metrics](https://grafana.com/files/grafanacon_eu_2018/Tom_Wilkie_GrafanaCon_EU_2018.pdf)
 
-## Usage 
+## Basic Usage 
 
 Per default, the service works with the following assumptions regarding the setup of the Prometheus instance:
 

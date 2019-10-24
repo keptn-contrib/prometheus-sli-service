@@ -218,7 +218,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 	service string, stage string, indicatorValues []*keptnevents.SLIResult) error {
 
-	source, _ := url.Parse("gatekeeper-service")
+	source, _ := url.Parse("prometheus-sli-service")
 	contentType := "application/json"
 
 	getSLIEvent := keptnevents.InternalGetSLIDoneEventData{
