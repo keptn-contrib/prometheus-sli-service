@@ -139,7 +139,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 			})
 		}
 	}
-	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Stage, eventData.Service, sliResults)
+	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage, sliResults)
 }
 
 func getCustomQueries(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (*prometheus.CustomQueryConfig, error) {
