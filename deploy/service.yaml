@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus-service
+  name: prometheus-sli-service
   namespace: keptn
 spec:
   selector:
     matchLabels:
-      run: prometheus-service
+      run: prometheus-sli-service
   replicas: 1
   template:
     metadata:
       labels:
-        run: prometheus-service
+        run: prometheus-sli-service
     spec:
       containers:
-      - name: prometheus-service
+      - name: prometheus-sli-service
         image: keptn/prometheus-sli-service:latest
         ports:
         - containerPort: 8080
@@ -45,13 +45,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-service
+  name: prometheus-sli-service
   namespace: keptn
   labels:
-    run: prometheus-service
+    run: prometheus-sli-service
 spec:
   ports:
   - port: 8080
     protocol: TCP
   selector:
-    run: prometheus-service
+    run: prometheus-sli-service
