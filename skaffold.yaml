@@ -8,4 +8,4 @@ build:
 deploy:
   kubectl:
     manifests:
-      - deploy/service_debug.yaml
+      - deploy/service.yaml
