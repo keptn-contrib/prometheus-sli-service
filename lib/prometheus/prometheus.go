@@ -53,7 +53,7 @@ type Handler struct {
 	Service       string
 	HTTPClient    *http.Client
 	CustomFilters []*keptnevents.SLIFilter
-	CustomQueries *CustomQueryConfig
+	CustomQueries map[string]string
 }
 
 // NewPrometheusHandler returns a new prometheus handler that interacts with the Prometheus REST API

@@ -106,14 +106,44 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
-
-	// check if custom queries are stored for the project
-	customQueries, err := getCustomQueries(eventData.Project, kubeClient, stdLogger)
+	// get custom metrics for Keptn installation
+	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
 
 	if err != nil {
+		log.Fatal(err)
 		return err
 	}
+
+	// get custom metrics for project
+	projectCustomQueries, err := getCustomQueriesForProject(eventData.Project, kubeClient, stdLogger)
+
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	log.Printf("Custom Query Config\n")
+
+	// make sure custom queries exists
+	if customQueries == nil {
+		customQueries = make(map[string]string)
+	} else {
+		for k, v := range customQueries {
+			log.Printf("\tFound custom query %s with value %s\n", k, v)
+		}
+	}
+
+	if projectCustomQueries != nil {
+		log.Println("Merging custom queries with projectCustomQueries")
+		// merge global custom queries and project custom queries
+		for k, v := range projectCustomQueries {
+			// overwrite / append project custom query on global custom queries
+			customQueries[k] = v
+			log.Printf("\tOverwriting custom query %s with value %s\n", k, v)
+		}
+	}
+
+	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
 
 	if customQueries != nil {
 		prometheusHandler.CustomQueries = customQueries
@@ -139,28 +169,52 @@ func retrieveMetrics(event cloudevents.Event) error {
 			})
 		}
 	}
-	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage, sliResults)
+	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+		sliResults, eventData.Start, eventData.End)
 }
 
-func getCustomQueries(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (*prometheus.CustomQueryConfig, error) {
-	logger.Info("Checking for custom SLI queries for project " + project)
+const keptnPrometheusSliConfigMapName = "prometheus-sli-service-config"
 
-	configMap, err := kubeClient.ConfigMaps("keptn").Get("prometheus-metric-config-"+project, metav1.GetOptions{})
+// Return Custom Queries for Keptn Installation
+func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnPrometheusSliConfigMapName))
+
+	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnPrometheusSliConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		logger.Info("No global custom queries defined")
+		return nil, nil
+	}
+
+	customQueries := make(map[string]string)
+	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
+
+	if err != nil {
+		logger.Info("Global custom queries found, but could not parse them: " + err.Error())
+		return nil, err
+	}
+	logger.Info("Global custom queries found and parsed")
+	return customQueries, nil
+}
+
+// Return Custom Queries for Keptn Installation
+func getCustomQueriesForProject(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnPrometheusSliConfigMapName))
+
+	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnPrometheusSliConfigMapName+"-"+project, metav1.GetOptions{})
 	if err != nil {
 		logger.Info("No custom queries defined for project " + project)
 		return nil, nil
 	}
 
-	customQueries := &prometheus.CustomQueryConfig{}
-	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), customQueries)
+	customQueries := make(map[string]string)
+	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
 
 	if err != nil {
-		logger.Info("Custom queries found for project " + project + ", but could not parse them: " + err.Error())
+		logger.Info("Project custom queries found, but could not parse them: " + err.Error())
 		return nil, err
 	}
-	logger.Info("Custom queries found for project " + project)
+	logger.Info("Project custom queries found and parsed")
 	return customQueries, nil
-
 }
 
 func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, error) {
@@ -216,7 +270,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult) error {
+	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
 	contentType := "application/json"
@@ -226,6 +280,8 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		Service:         service,
 		Stage:           stage,
 		IndicatorValues: indicatorValues,
+		Start:           start,
+		End:             end,
 	}
 	event := cloudevents.Event{
 		Context: cloudevents.EventContextV02{
