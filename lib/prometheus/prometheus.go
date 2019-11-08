@@ -34,15 +34,6 @@ type prometheusResponse struct {
 	} `json:"data"`
 }
 
-// CustomQueryConfig allows to override the queries used to retrieve the SLI values from Prometheus
-type CustomQueryConfig struct {
-	ThroughputQuery        string `json:"throughputQuery" yaml:"throughputQuery"`
-	ErrorRateQuery         string `json:"errorRateQuery" yaml:"errorRateQuery"`
-	RequestLatencyP50Query string `json:"requestLatencyP50Query" yaml:"requestLatencyP50Query"`
-	RequestLatencyP90Query string `json:"requestLatencyP90Query" yaml:"requestLatencyP90Query"`
-	RequestLatencyP95Query string `json:"requestLatencyP95Query" yaml:"requestLatencyP95Query"`
-}
-
 // Handler interacts with a prometheus API endpoint
 type Handler struct {
 	ApiURL        string
@@ -121,6 +112,12 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64
 }
 
 func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time) (string, error) {
+	query := ph.CustomQueries[metric]
+	if query != "" {
+		query = ph.replaceQueryParameters(query, start, end)
+
+		return query, nil
+	}
 	switch metric {
 	case Throughput:
 		return ph.getThroughputQuery(start, end), nil
@@ -138,8 +135,8 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 }
 
 func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
-	if ph.CustomQueries != nil && ph.CustomQueries.ThroughputQuery != "" {
-		query := ph.CustomQueries.ThroughputQuery
+	if ph.CustomQueries != nil && ph.CustomQueries["throughput"] != "" {
+		query := ph.CustomQueries["throughput"]
 		query = ph.replaceQueryParameters(query, start, end)
 		return query
 	}
@@ -186,8 +183,8 @@ func (ph *Handler) getDefaultThroughputQuery(start time.Time, end time.Time) str
 }
 
 func (ph *Handler) getErrorRateQuery(start time.Time, end time.Time) string {
-	if ph.CustomQueries != nil && ph.CustomQueries.ErrorRateQuery != "" {
-		query := ph.CustomQueries.ErrorRateQuery
+	if ph.CustomQueries != nil && ph.CustomQueries["error_rate"] != "" {
+		query := ph.CustomQueries["error_rate"]
 		query = ph.replaceQueryParameters(query, start, end)
 		return query
 	}
@@ -225,7 +222,6 @@ func (ph *Handler) getDefaultErrorRateQuery(start time.Time, end time.Time) stri
 		    }
 		}
 	*/
-	// TODO: allow user-defined custom metrics
 	return "sum(rate(http_requests_total{" + filterExpr + ",status!~'2..'}[" + durationString + "]))/sum(rate(http_requests_total{" + filterExpr + "}[" + durationString + "]))"
 }
 
@@ -234,13 +230,13 @@ func (ph *Handler) getRequestLatencyQuery(percentile string, start time.Time, en
 		query := ""
 		switch percentile {
 		case "50":
-			query = ph.CustomQueries.RequestLatencyP50Query
+			query = ph.CustomQueries["response_time_p50"]
 			break
 		case "90":
-			query = ph.CustomQueries.RequestLatencyP90Query
+			query = ph.CustomQueries["response_time_p90"]
 			break
 		case "95":
-			query = ph.CustomQueries.RequestLatencyP95Query
+			query = ph.CustomQueries["response_time_p95"]
 			break
 		default:
 			query = ""
@@ -274,14 +270,17 @@ func (ph *Handler) getDefaultRequestLatencyQuery(start time.Time, end time.Time,
 		    }
 		}
 	*/
-	// TODO: allow user-defined custom metrics
 	return "histogram_quantile(0." + percentile + ",sum(rate(http_response_time_milliseconds_bucket{" + filterExpr + "}[" + durationString + "]))by(le))"
 }
 
 func (ph *Handler) getDefaultFilterExpression() string {
-	filterExpression := "job='" + ph.Service + "-" + ph.Project + "-" + ph.Stage + "'"
+	filterExpression := ""
+	jobFilterFound := false
 	if ph.CustomFilters != nil && len(ph.CustomFilters) > 0 {
 		for _, filter := range ph.CustomFilters {
+			if filter.Key == "job" {
+				jobFilterFound = true
+			}
 			/* if no operator has been included in the label filter, use exact matching (=), e.g.
 			e.g.:
 			key: handler
@@ -290,7 +289,12 @@ func (ph *Handler) getDefaultFilterExpression() string {
 			if !strings.HasPrefix(filter.Value, "=") && !strings.HasPrefix(filter.Value, "!=") && !strings.HasPrefix(filter.Value, "=~") && !strings.HasPrefix(filter.Value, "!~") {
 				filter.Value = strings.Replace(filter.Value, "'", "", -1)
 				filter.Value = strings.Replace(filter.Value, "\"", "", -1)
-				filterExpression = filterExpression + "," + filter.Key + "='" + filter.Value + "'"
+				if filterExpression != "" {
+					filterExpression = filterExpression + "," + filter.Key + "='" + filter.Value + "'"
+				} else {
+					filterExpression = filter.Key + "='" + filter.Value + "'"
+				}
+
 			} else {
 				/* if a valid operator (=, !=, =~, !~) is prepended to the value, use that one
 				e.g.:
@@ -303,9 +307,21 @@ func (ph *Handler) getDefaultFilterExpression() string {
 				value: =~.+ItemsController|.+VersionController
 				*/
 				filter.Value = strings.Replace(filter.Value, "\"", "'", -1)
-				filterExpression = filterExpression + "," + filter.Key + filter.Value
+				if filterExpression != "" {
+					filterExpression = filterExpression + "," + filter.Key + filter.Value
+				} else {
+					filterExpression = filter.Key + filter.Value
+				}
 			}
 		}
+	}
+	if !jobFilterFound {
+		if filterExpression != "" {
+			filterExpression = "job='" + ph.Service + "-" + ph.Project + "-" + ph.Stage + "-canary'" + "," + filterExpression
+		} else {
+			filterExpression = "job='" + ph.Service + "-" + ph.Project + "-" + ph.Stage + "-canary'"
+		}
+
 	}
 	return filterExpression
 }
