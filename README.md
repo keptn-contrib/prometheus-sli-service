@@ -7,7 +7,7 @@ This service is used for retrieving service level indicators (SLIs) from a prome
 (`prometheus-service.monitoring.svc.cluster.local:8080`), but it can also be configures to use any reachable Prometheus endpoint using basic authentication by providing the credentials
 via a secret in the `keptn` namespace of the cluster.
 
-The supported SLIs are:
+The supported default SLIs are:
 
  - throughput
  - error_rate
@@ -62,9 +62,9 @@ kubectl create secret -n keptn generic prometheus-credentials-<project> --from-f
 Please note that there is a naming convention for the secret, because this can be configured per **project**. Therefore, the secret has to have the name `prometheus-credentials-<project>`
 
 
-### Overriding SLI queries
+### Custom SLI queries
 
-Users can override the predefined queries for the supported SLIs by creating a `ConfigMap` with the name `prometheus-metric-config-<project>` in the `keptn` namespace.
+Users can override the predefined queries, as well as add custom SLI queries by creating a `ConfigMap` with the name `prometheus-metric-config-<project>` in the `keptn` namespace.
 In this ConfigMap, a YAML object containing the queries can be defined, e.g.:
 
 ```yaml
@@ -75,11 +75,13 @@ metadata:
   namespace: keptn
 data:
   custom-queries: |
-    throughputQuery: "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])"
-    errorRateQuery: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
-    requestLatencyP50Query: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    requestLatencyP90Query: "histogram_quantile(0.90,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    requestLatencyP95Query: "histogram_quantile(0.95,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    throughput: "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])"
+    errorRate: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
+    requestLatencyP50: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    requestLatencyP90: "histogram_quantile(0.90,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    requestLatencyP95: "histogram_quantile(0.95,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    # Example for a custom SLI that is not part of the default SLIs
+    cpu_usage: avg(rate(container_cpu_usage_seconds_total{namespace="$PROJECT-$STAGE",pod_name=~"$SERVICE-primary-.*"}[5m]))
 ```
 
 Note that, similarly, to the custom endpoint configuration, the name of the ConfigMap has to be `prometheus-metric-config-<project>`, and has to be stored in the `keptn` namespace.
