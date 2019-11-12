@@ -170,7 +170,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		}
 	}
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-		sliResults, eventData.Start, eventData.End)
+		sliResults, eventData.Start, eventData.End, eventData.TestStrategy)
 }
 
 const keptnPrometheusSliConfigMapName = "prometheus-sli-service-config"
@@ -270,7 +270,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string) error {
+	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string, testStrategy string) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
 	contentType := "application/json"
@@ -282,6 +282,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		IndicatorValues: indicatorValues,
 		Start:           start,
 		End:             end,
+		TestStrategy:    testStrategy,
 	}
 	event := cloudevents.Event{
 		Context: cloudevents.EventContextV02{
