@@ -64,14 +64,14 @@ Please note that there is a naming convention for the secret, because this can b
 
 ### Custom SLI queries
 
-Users can override the predefined queries, as well as add custom SLI queries by creating a `ConfigMap` with the name `prometheus-metric-config-<project>` in the `keptn` namespace.
+Users can override the predefined queries, as well as add custom SLI queries by creating a `ConfigMap` with the name `prometheus-sli-config-<project>` in the `keptn` namespace.
 In this ConfigMap, a YAML object containing the queries can be defined, e.g.:
 
 ```yaml
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: prometheus-metric-config-sockshop
+  name: prometheus-sli-config-sockshop
   namespace: keptn
 data:
   custom-queries: |
@@ -84,7 +84,7 @@ data:
     cpu_usage: avg(rate(container_cpu_usage_seconds_total{namespace="$PROJECT-$STAGE",pod_name=~"$SERVICE-primary-.*"}[5m]))
 ```
 
-Note that, similarly, to the custom endpoint configuration, the name of the ConfigMap has to be `prometheus-metric-config-<project>`, and has to be stored in the `keptn` namespace.
+Note that, similarly, to the custom endpoint configuration, the name of the ConfigMap has to be `prometheus-sli-config-<project>`, and has to be stored in the `keptn` namespace.
 
 Within the user-defined queries, the following variables can be used to dynamically build the query, depending on the project/stage/service, and the time frame:
 

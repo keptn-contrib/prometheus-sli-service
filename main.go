@@ -173,7 +173,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy)
 }
 
-const keptnPrometheusSliConfigMapName = "prometheus-sli-service-config"
+const keptnPrometheusSliConfigMapName = "prometheus-sli-config"
 
 // Return Custom Queries for Keptn Installation
 func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
