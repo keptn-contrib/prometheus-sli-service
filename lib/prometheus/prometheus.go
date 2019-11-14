@@ -144,14 +144,18 @@ func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
 }
 
 func (ph *Handler) replaceQueryParameters(query string, start time.Time, end time.Time) string {
-	query = strings.Replace(query, "$PROJECT", ph.Project, -1)
-	query = strings.Replace(query, "$STAGE", ph.Stage, -1)
-	query = strings.Replace(query, "$SERVICE", ph.Service, -1)
 	for _, filter := range ph.CustomFilters {
 		filter.Value = strings.Replace(filter.Value, "'", "", -1)
 		filter.Value = strings.Replace(filter.Value, "\"", "", -1)
 		query = strings.Replace(query, "$"+filter.Key, filter.Value, -1)
+		query = strings.Replace(query, "$"+strings.ToUpper(filter.Key), filter.Value, -1)
 	}
+	query = strings.Replace(query, "$PROJECT", ph.Project, -1)
+	query = strings.Replace(query, "$STAGE", ph.Stage, -1)
+	query = strings.Replace(query, "$SERVICE", ph.Service, -1)
+	query = strings.Replace(query, "$project", ph.Project, -1)
+	query = strings.Replace(query, "$stage", ph.Stage, -1)
+	query = strings.Replace(query, "$service", ph.Service, -1)
 	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 
 	query = strings.Replace(query, "$DURATION_SECONDS", durationString, -1)

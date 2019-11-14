@@ -69,7 +69,7 @@ func TestGetCustomErrorRateQueryWithFilter(t *testing.T) {
 	var customFilters []*keptnevents.SLIFilter
 
 	customQueries := map[string]string{}
-	customQueries["error_rate"] = "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[$DURATION_SECONDS]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
+	customQueries["error_rate"] = "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$HANDLER',status!~'2..'}[$DURATION_SECONDS]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$HANDLER'}[$DURATION_SECONDS]))"
 
 	customFilters = append(customFilters, &keptnevents.SLIFilter{
 		Key:   "handler",
@@ -110,7 +110,7 @@ func TestGetCustomThroughputQueryWithFilter(t *testing.T) {
 	var customFilters []*keptnevents.SLIFilter
 
 	customQueries := map[string]string{}
-	customQueries["throughput"] = "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])"
+	customQueries["throughput"] = "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$HANDLER'}[$DURATION_SECONDS])"
 
 	customFilters = append(customFilters, &keptnevents.SLIFilter{
 		Key:   "handler",
