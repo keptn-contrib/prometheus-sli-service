@@ -150,7 +150,7 @@ func (ph *Handler) replaceQueryParameters(query string, start time.Time, end tim
 	for _, filter := range ph.CustomFilters {
 		filter.Value = strings.Replace(filter.Value, "'", "", -1)
 		filter.Value = strings.Replace(filter.Value, "\"", "", -1)
-		query = strings.Replace(query, "$"+filter.Key, filter.Value, -1)
+		query = strings.Replace(query, "$"+strings.ToUpper(filter.Key), filter.Value, -1)
 	}
 	durationString := strconv.FormatInt(getDurationInSeconds(start, end), 10) + "s"
 
