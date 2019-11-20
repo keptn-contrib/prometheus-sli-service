@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: prometheus-sli-service
-        image: keptn/prometheus-sli-service:latest
+        image: keptn/prometheus-sli-service:0.1.0.latest
         ports:
         - containerPort: 8080
         resources:
@@ -31,16 +31,6 @@ spec:
           value: 'http://configuration-service.keptn.svc.cluster.local:8080'
         - name: EVENTBROKER
           value: 'http://event-broker.keptn.svc.cluster.local/keptn'
-        - name: THROUGHPUT_QUERY
-          value: ""
-        - name: ERROR_RATE_QUERY
-          value: ""
-        - name: REQUEST_LATENCY_P50_QUERY
-          value: ""
-        - name: REQUEST_LATENCY_P90_QUERY
-          value: ""
-        - name: REQUEST_LATENCY_P95_QUERY
-          value: ""
 ---
 apiVersion: v1
 kind: Service
