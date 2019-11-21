@@ -18,11 +18,7 @@ before_install:
   - GIT_BRANCH_AND_COMMIT=$(git describe --exact-match 2> /dev/null || echo "`git symbolic-ref HEAD 2> /dev/null | cut -b 12-`-`git log --pretty=format:\"%h\" -1`")
   # find out if we are on a tag (= exact match)
   # if not: use tag + number of commit + commit hash
-  - |
-    VERSION=$(git describe --exact-match)
-    if [ $? -ne 0 ]; then
-      VERSION="${GIT_LAST_TAG}-${GIT_BRANCH_NAME}-${GIT_NUM_COMMITS_SINCE_LAST_TAG}-${GIT_SHA}"
-    fi
+  - VERSION="$(cat version | tr -d '[:space:]')"
   - DATE="$(date +'%Y%m%d.%H%M')"
   - ./writeManifest.sh
   - cat MANIFEST

@@ -11,9 +11,9 @@ The supported default SLIs are:
 
  - throughput
  - error_rate
- - request_latency_p50
- - request_latency_p90
- - request_latency_p95
+ - response_time_p50
+ - response_time_p90
+ - response_time_p95
  
 The provided SLIs are based on the [RED metrics](https://grafana.com/files/grafanacon_eu_2018/Tom_Wilkie_GrafanaCon_EU_2018.pdf)
 
@@ -36,11 +36,11 @@ Per default, the service works with the following assumptions regarding the setu
        
  - Based on those metrics, the queries for the SLIs are built as follows:
  
-   - **throughput**: `sum(rate(http_requests_total{job="<service>-<project>-<stage>"}[<test_duration_in_seconds>s]))`
-   - **error_rate**: `sum(rate(http_requests_total{job="<service>-<project>-<stage>",status!~'2..'}[<test_duration_in_seconds>s]))/sum(rate(http_requests_total{job="<service>-<project>-<stage>"}[<test_duration_in_seconds>s]))`
-   - **request_latency_p50**: `histogram_quantile(0.50, sum(rate(http_response_time_milliseconds_bucket{job='<service>-<project>-<stage>'}[<test_duration_in_seconds>s])) by (le))`
-   - **request_latency_p90**: `histogram_quantile(0.90, sum(rate(http_response_time_milliseconds_bucket{job='<service>-<project>-<stage>'}[<test_duration_in_seconds>s])) by (le))`
-   - **request_latency_p95**: `histogram_quantile(0.95, sum(rate(http_response_time_milliseconds_bucket{job='<service>-<project>-<stage>'}[<test_duration_in_seconds>s])) by (le))` 
+   - **throughput**: `sum(rate(http_requests_total{job="<service>-<project>-<stage>-canary"}[<test_duration_in_seconds>s]))`
+   - **error_rate**: `sum(rate(http_requests_total{job="<service>-<project>-<stage>-canary",status!~'2..'}[<test_duration_in_seconds>s]))/sum(rate(http_requests_total{job="<service>-<project>-<stage>-canary"}[<test_duration_in_seconds>s]))`
+   - **response_time_p50**: `histogram_quantile(0.50, sum(rate(http_response_time_milliseconds_bucket{job='<service>-<project>-<stage>-canary'}[<test_duration_in_seconds>s])) by (le))`
+   - **response_time_p90**: `histogram_quantile(0.90, sum(rate(http_response_time_milliseconds_bucket{job='<service>-<project>-<stage>-canary'}[<test_duration_in_seconds>s])) by (le))`
+   - **response_time_p95**: `histogram_quantile(0.95, sum(rate(http_response_time_milliseconds_bucket{job='<service>-<project>-<stage>-canary'}[<test_duration_in_seconds>s])) by (le))` 
    
 ## Advanced Usage
 
@@ -76,10 +76,10 @@ metadata:
 data:
   custom-queries: |
     throughput: "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])"
-    errorRate: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
-    requestLatencyP50: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    requestLatencyP90: "histogram_quantile(0.90,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    requestLatencyP95: "histogram_quantile(0.95,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    error_rate: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
+    response_time_p50: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    response_time_p90: "histogram_quantile(0.90,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
+    response_time_p95: "histogram_quantile(0.95,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
     # Example for a custom SLI that is not part of the default SLIs
     cpu_usage: avg(rate(container_cpu_usage_seconds_total{namespace="$PROJECT-$STAGE",pod_name=~"$SERVICE-primary-.*"}[5m]))
 ```

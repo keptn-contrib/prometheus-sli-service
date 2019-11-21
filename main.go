@@ -110,7 +110,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
 
 	if err != nil {
-		log.Fatal(err)
+		stdLogger.Error("Failed to get global custom queries")
+		stdLogger.Error(err.Error())
 		return err
 	}
 
@@ -118,7 +119,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	projectCustomQueries, err := getCustomQueriesForProject(eventData.Project, kubeClient, stdLogger)
 
 	if err != nil {
-		log.Fatal(err)
+		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
+		stdLogger.Error(err.Error())
 		return err
 	}
 
