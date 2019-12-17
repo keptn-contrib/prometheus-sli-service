@@ -4,20 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/keptn-contrib/prometheus-sli-service/lib/prometheus"
-	"gopkg.in/yaml.v2"
 	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/keptn-contrib/prometheus-sli-service/lib/prometheus"
+	"gopkg.in/yaml.v2"
+
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/client"
 	cloudeventshttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 	"github.com/cloudevents/sdk-go/pkg/cloudevents/types"
+
 	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
+
+	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
 	keptnevents "github.com/keptn/go-utils/pkg/events"
 	keptnutils "github.com/keptn/go-utils/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +30,7 @@ import (
 
 const configservice = "CONFIGURATION_SERVICE"
 const eventbroker = "EVENTBROKER"
+const sliResourceURI = "prometheus/sli.yaml"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents
@@ -94,11 +99,11 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
-	stdLogger.Info("Retrieving prometheus metrics")
+	stdLogger.Info("Retrieving Prometheus metrics")
 	kubeClient, err := keptnutils.GetKubeAPI(true)
 	if err != nil {
-		stdLogger.Error("could not create kube client")
-		return errors.New("could not create kube client")
+		stdLogger.Error("could not create Kubernetes client")
+		return errors.New("could not create Kubernetes client")
 	}
 	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient, stdLogger)
 
@@ -107,36 +112,33 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	// get custom metrics for Keptn installation
-	customQueries, err := getGlobalCustomQueries(kubeClient, stdLogger)
-
+	customQueries, err := getDefaultCustomQueries(kubeClient, stdLogger)
 	if err != nil {
-		stdLogger.Error("Failed to get global custom queries")
+		stdLogger.Error("Failed to get default custom queries")
 		stdLogger.Error(err.Error())
 		return err
 	}
 
-	// get custom metrics for project
-	projectCustomQueries, err := getCustomQueriesForProject(eventData.Project, kubeClient, stdLogger)
+	// make sure custom queries exists
+	if customQueries == nil {
+		customQueries = make(map[string]string)
+	} else {
+		log.Printf("Custom query config\n")
+		for k, v := range customQueries {
+			log.Printf("\tFound custom query %s with value %s\n", k, v)
+		}
+	}
 
+	// get custom metrics for project
+	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 		stdLogger.Error(err.Error())
 		return err
 	}
 
-	log.Printf("Custom Query Config\n")
-
-	// make sure custom queries exists
-	if customQueries == nil {
-		customQueries = make(map[string]string)
-	} else {
-		for k, v := range customQueries {
-			log.Printf("\tFound custom query %s with value %s\n", k, v)
-		}
-	}
-
 	if projectCustomQueries != nil {
-		log.Println("Merging custom queries with projectCustomQueries")
+		log.Println("Merging custom queries with project custom queries:")
 		// merge global custom queries and project custom queries
 		for k, v := range projectCustomQueries {
 			// overwrite / append project custom query on global custom queries
@@ -177,8 +179,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 const keptnPrometheusSliConfigMapName = "prometheus-sli-config"
 
-// Return Custom Queries for Keptn Installation
-func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+// getDefaultCustomQueries returns default queries as configured in ConfigMap of the service
+func getDefaultCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
 	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnPrometheusSliConfigMapName))
 
 	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnPrometheusSliConfigMapName, metav1.GetOptions{})
@@ -198,24 +200,21 @@ func getGlobalCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Lo
 	return customQueries, nil
 }
 
-// Return Custom Queries for Keptn Installation
-func getCustomQueriesForProject(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
-	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnPrometheusSliConfigMapName))
+// getCustomQueries returns custom queries as stored in configuration store
+func getCustomQueries(project string, stage string, service string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+	logger.Info("Checking for custom SLI queries")
 
-	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnPrometheusSliConfigMapName+"-"+project, metav1.GetOptions{})
+	endPoint, err := getServiceEndpoint(configservice)
 	if err != nil {
-		logger.Info("No custom queries defined for project " + project)
-		return nil, nil
+		return nil, errors.New("Failed to retrieve endpoint of configuration-service. %s" + err.Error())
 	}
 
-	customQueries := make(map[string]string)
-	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
-
+	resourceHandler := configutils.NewResourceHandler(endPoint.String())
+	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
 	if err != nil {
-		logger.Info("Project custom queries found, but could not parse them: " + err.Error())
 		return nil, err
 	}
-	logger.Info("Project custom queries found and parsed")
+
 	return customQueries, nil
 }
 
