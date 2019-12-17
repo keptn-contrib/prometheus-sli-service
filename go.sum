@@ -198,6 +198,14 @@ github.com/keptn/go-utils v0.0.0-20191030112956-7e1cba200072 h1:JMzslHnHUWS+aIzt
 github.com/keptn/go-utils v0.0.0-20191030112956-7e1cba200072/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
 github.com/keptn/go-utils v0.0.0-20191030134731-341284448a02 h1:HYv+BJx9h4Dd+prE+D+pMYkIUb9mMiRPWWWnqm2RQ3w=
 github.com/keptn/go-utils v0.0.0-20191030134731-341284448a02/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191216160027-d97a269c0ba0 h1:hoHElUkHBPMDTFsSaJ2HukJrBnobz4p/zTO3E8Z4JLg=
+github.com/keptn/go-utils v0.0.0-20191216160027-d97a269c0ba0/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191217072523-19bfce9f82f1 h1:99/qfhtTTF91jcJKNT2NDtwPrn15lwJ7yLa9/fSwIdE=
+github.com/keptn/go-utils v0.0.0-20191217072523-19bfce9f82f1/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191217074231-08f0c05f8de6 h1:Ogkhx+qo9R13/lifQhGVP8UoKGneJ5PVYPvbUUYOFpU=
+github.com/keptn/go-utils v0.0.0-20191217074231-08f0c05f8de6/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.0.0-20191217082504-1522db2363bd h1:VKTZHZ4oJB8t/+RpHNCSH6ukRxpm+W/6xddgvjledC0=
+github.com/keptn/go-utils v0.0.0-20191217082504-1522db2363bd/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
 github.com/keptn/go-utils v0.3.0 h1:0Gm3Kmv3EXmlq1i3YcHiwLs9j6wCw0COe+IR2pNKq5k=
 github.com/keptn/go-utils v0.3.1-0.20191111100301-bff0cac85494 h1:iZ//qDbwRLRx41VbmPJQclhDNPK9QGuwe0K7mDHfsGQ=
 github.com/keptn/go-utils v0.3.1-0.20191111100301-bff0cac85494/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
@@ -205,6 +213,7 @@ github.com/keptn/go-utils v0.3.1-0.20191112090613-cf874a31b830 h1:J9CNDME07rc2w9
 github.com/keptn/go-utils v0.3.1-0.20191112090613-cf874a31b830/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
 github.com/keptn/go-utils v0.4.0 h1:rVIXiYr05moKJIyorULbC3F/UcmKK7Yr3uNvh6pb5xQ=
 github.com/keptn/go-utils v0.4.0/go.mod h1:R9a1HXkD+KCrhMFbLcEhtBtHGfYwXhO6dwZzmyoE98c=
+github.com/keptn/go-utils v0.5.0 h1:Wbl73vOCg2l+iZJ5jdQKUNNZE5PnSVmWmpWdShCPlOg=
 github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd h1:Coekwdh0v2wtGp9Gmz1Ze3eVRAWJMLokvN3QjdzCHLY=
 github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd/go.mod h1:CT57kijsi8u/K/BOFA39wgDQJ9CxiF4nAY/ojJ6r6mM=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
