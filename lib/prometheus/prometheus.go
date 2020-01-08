@@ -118,6 +118,7 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 
 		return query, nil
 	}
+
 	switch metric {
 	case Throughput:
 		return ph.getThroughputQuery(start, end), nil
@@ -132,15 +133,6 @@ func (ph *Handler) getMetricQuery(metric string, start time.Time, end time.Time)
 	default:
 		return "", errors.New("unsupported SLI")
 	}
-}
-
-func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
-	if ph.CustomQueries != nil && ph.CustomQueries["throughput"] != "" {
-		query := ph.CustomQueries["throughput"]
-		query = ph.replaceQueryParameters(query, start, end)
-		return query
-	}
-	return ph.getDefaultThroughputQuery(start, end)
 }
 
 func (ph *Handler) replaceQueryParameters(query string, start time.Time, end time.Time) string {
@@ -160,6 +152,15 @@ func (ph *Handler) replaceQueryParameters(query string, start time.Time, end tim
 
 	query = strings.Replace(query, "$DURATION_SECONDS", durationString, -1)
 	return query
+}
+
+func (ph *Handler) getThroughputQuery(start time.Time, end time.Time) string {
+	if ph.CustomQueries != nil && ph.CustomQueries["throughput"] != "" {
+		query := ph.CustomQueries["throughput"]
+		query = ph.replaceQueryParameters(query, start, end)
+		return query
+	}
+	return ph.getDefaultThroughputQuery(start, end)
 }
 
 func (ph *Handler) getDefaultThroughputQuery(start time.Time, end time.Time) string {

@@ -93,43 +93,26 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	// don't continue if SLIProvider != prometheus
+	// don't continue if SLIProvider is not prometheus
 	if eventData.SLIProvider != "prometheus" {
 		return nil
 	}
 
 	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
 	stdLogger.Info("Retrieving Prometheus metrics")
+
 	kubeClient, err := keptnutils.GetKubeAPI(true)
 	if err != nil {
 		stdLogger.Error("could not create Kubernetes client")
 		return errors.New("could not create Kubernetes client")
 	}
+
 	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient, stdLogger)
-
 	if err != nil {
 		return err
 	}
 
-	// get custom metrics for Keptn installation
-	customQueries, err := getDefaultCustomQueries(kubeClient, stdLogger)
-	if err != nil {
-		stdLogger.Error("Failed to get default custom queries")
-		stdLogger.Error(err.Error())
-		return err
-	}
-
-	// make sure custom queries exists
-	if customQueries == nil {
-		customQueries = make(map[string]string)
-	} else {
-		log.Printf("Custom query config\n")
-		for k, v := range customQueries {
-			log.Printf("\tFound custom query %s with value %s\n", k, v)
-		}
-	}
-
-	// get custom metrics for project
+	// retrieve custom metrics for project
 	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
@@ -137,20 +120,10 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	if projectCustomQueries != nil {
-		log.Println("Merging custom queries with project custom queries:")
-		// merge global custom queries and project custom queries
-		for k, v := range projectCustomQueries {
-			// overwrite / append project custom query on global custom queries
-			customQueries[k] = v
-			log.Printf("\tOverwriting custom query %s with value %s\n", k, v)
-		}
-	}
-
 	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
 
-	if customQueries != nil {
-		prometheusHandler.CustomQueries = customQueries
+	if projectCustomQueries != nil {
+		prometheusHandler.CustomQueries = projectCustomQueries
 	}
 
 	var sliResults []*keptnevents.SLIResult
@@ -173,31 +146,9 @@ func retrieveMetrics(event cloudevents.Event) error {
 			})
 		}
 	}
+
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy)
-}
-
-const keptnPrometheusSliConfigMapName = "prometheus-sli-config"
-
-// getDefaultCustomQueries returns default queries as configured in ConfigMap of the service
-func getDefaultCustomQueries(kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
-	logger.Info(fmt.Sprintf("Checking for custom SLI queries for Keptn installation (querying %s)", keptnPrometheusSliConfigMapName))
-
-	configMap, err := kubeClient.ConfigMaps("keptn").Get(keptnPrometheusSliConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		logger.Info("No global custom queries defined")
-		return nil, nil
-	}
-
-	customQueries := make(map[string]string)
-	err = yaml.Unmarshal([]byte(configMap.Data["custom-queries"]), &customQueries)
-
-	if err != nil {
-		logger.Info("Global custom queries found, but could not parse them: " + err.Error())
-		return nil, err
-	}
-	logger.Info("Global custom queries found and parsed")
-	return customQueries, nil
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
@@ -231,10 +182,10 @@ func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *
 	}
 
 	/*
-		data format:
-		url: string
-		user: string
-		password: string
+		required data format of the secret:
+		  url: string
+		  user: string
+		  password: string
 	*/
 	pc := &prometheusCredentials{}
 	err = yaml.Unmarshal(secret.Data["prometheus-credentials"], pc)
