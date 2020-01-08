@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/keptn-contrib/prometheus-sli-service.svg?branch=master)](https://travis-ci.org/keptn-contrib/prometheus-sli-service)
 [![Go Report Card](https://goreportcard.com/badge/github.com/keptn-contrib/prometheus-sli-service)](https://goreportcard.com/report/github.com/keptn-contrib/prometheus-sli-service)
 
-This service is used for retrieving service level indicators (SLIs) from a prometheus API endpoint. Per default, it fetches metrics from the prometheus instance set up by Keptn
+This service is used for retrieving Service Level Indicators (SLIs) from a Prometheus API endpoint. Per default, it fetches metrics from the prometheus instance set up by Keptn
 (`prometheus-service.monitoring.svc.cluster.local:8080`), but it can also be configures to use any reachable Prometheus endpoint using basic authentication by providing the credentials
 via a secret in the `keptn` namespace of the cluster.
 
@@ -25,12 +25,12 @@ Per default, the service works with the following assumptions regarding the setu
 
     For example, if `project=sockshop`, `stage=production` and `service=carts`, the scrape job name would have to be `carts-sockshop-production`.
     
- - Every service provides the following Metrics for its corresponding scrape job:
+ - Every service provides the following metrics for its corresponding scrape job:
      - http_response_time_milliseconds (Histogram)
      - http_requests_total (Counter)
      
        This metric has to contain the `status` label, indicating the HTTP response code of the requests handled by the service.
-       It is highly recommended that this metric also provides a label to query metric values for specific endpoints, e.g. `handler`
+       It is highly recommended that this metric also provides a label to query metric values for specific endpoints, e.g. `handler`.
        
        An example of an entry would look like this: `http_requests_total{method="GET",handler="VersionController.getInformation",status="200",} 4.0`
        
@@ -45,7 +45,7 @@ Per default, the service works with the following assumptions regarding the setu
 ## Advanced Usage
 
 ### Using an external Prometheus instance
-To use a Prometheus instance other than the one that's being managed by Keptn for a certain project, a secret containing the URL and the access credentials has to be deployed into the `keptn` namespace. The secret must have the following format:
+To use a Prometheus instance other than the one that is being managed by Keptn for a certain project, a secret containing the URL and the access credentials has to be deployed into the `keptn` namespace. The secret must have the following format:
 
 ```yaml
 user: test
@@ -55,36 +55,29 @@ url: http://prometheus-service.monitoring.svc.cluster.local:8080
 
 If this information is stored in a file, e.g. `prometheus-creds.yaml`, it can be stored with the following command (don't forget to replace the `<project>` placeholder with the name of your project:
 
-```bash
+```console
 kubectl create secret -n keptn generic prometheus-credentials-<project> --from-file=prometheus-credentials=./mock_secret.yaml
 ```
 
 Please note that there is a naming convention for the secret, because this can be configured per **project**. Therefore, the secret has to have the name `prometheus-credentials-<project>`
 
-
 ### Custom SLI queries
 
-Users can override the predefined queries, as well as add custom SLI queries by creating a `ConfigMap` with the name `prometheus-sli-config-<project>` in the `keptn` namespace.
-In this ConfigMap, a YAML object containing the queries can be defined, e.g.:
+Users can override the predefined queries, as well as add custom queries by creating a SLI configuration. 
 
-```yaml
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: prometheus-sli-config-sockshop
-  namespace: keptn
-data:
-  custom-queries: |
-    throughput: "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS])"
-    error_rate: "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler',status!~'2..'}[1s]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]))"
-    response_time_p50: "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    response_time_p90: "histogram_quantile(0.90,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    response_time_p95: "histogram_quantile(0.95,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
-    # Example for a custom SLI that is not part of the default SLIs
-    cpu_usage: avg(rate(container_cpu_usage_seconds_total{namespace="$PROJECT-$STAGE",pod_name=~"$SERVICE-primary-.*"}[5m]))
-```
+* A SLI configuration is a yaml file as shown below:
 
-Note that, similarly, to the custom endpoint configuration, the name of the ConfigMap has to be `prometheus-sli-config-<project>`, and has to be stored in the `keptn` namespace.
+    ```yaml
+    ---
+    spec_version: '1.0'
+    indicators:
+      cpu_usage: avg(rate(container_cpu_usage_seconds_total{namespace="$PROJECT-$STAGE",pod_name=~"$SERVICE-primary-.*"}[5m]))
+      response_time_p95: histogram_quantile(0.95, sum by(le) (rate(http_response_time_milliseconds_bucket{handler="ItemsController.addToCart",job="$SERVICE-$PROJECT-$STAGE-canary"}[$DURATION_SECONDS])))
+    ```
+
+* To store this configuration, you need to add this file to a Keptn's configuration store. This is done by using the Keptn CLI with the [add-resource](https://keptn.sh/docs/0.6.0/reference/cli/#keptn-add-resource) command. 
+
+---
 
 Within the user-defined queries, the following variables can be used to dynamically build the query, depending on the project/stage/service, and the time frame:
 
