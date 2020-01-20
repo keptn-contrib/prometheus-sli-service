@@ -18,9 +18,9 @@ import (
 
 const Throughput = "throughput"
 const ErrorRate = "error_rate"
-const RequestLatencyP50 = "request_latency_p50"
-const RequestLatencyP90 = "request_latency_p90"
-const RequestLatencyP95 = "request_latency_p95"
+const RequestLatencyP50 = "response_time_p50"
+const RequestLatencyP90 = "response_time_p90"
+const RequestLatencyP95 = "response_time_p95"
 
 type prometheusResponse struct {
 	Status string `json:"status"`
