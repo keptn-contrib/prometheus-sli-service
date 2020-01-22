@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: prometheus-sli-service
-        image: keptn/prometheus-sli-service:0.2.0
+        image: keptn/prometheus-sli-service:latest
         ports:
         - containerPort: 8080
         resources:
@@ -64,7 +64,7 @@ spec:
     spec:
       containers:
       - name: distributor
-        image: keptn/distributor:0.5.0
+        image: keptn/distributor:latest
         ports:
         - containerPort: 8080
         resources:
