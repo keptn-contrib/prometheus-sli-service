@@ -92,10 +92,6 @@ For example, if an evaluation for the service **carts**  in the stage **producti
 rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURATION_SECONDS]) => rate(my_custom_metric{job='carts-sockshop-production',handler=~'$handler'}[30s])
 ```
 
-## Installation
-
-The *prometheus-sli-service* is installed as a part of [Keptn's uniform](https://keptn.sh).
-
 ## Deploy in your Kubernetes cluster
 
 To deploy the current version of the *prometheus-sli-service* in your Keptn Kubernetes cluster, use the file `deploy/service.yaml` from this repository and apply it:
