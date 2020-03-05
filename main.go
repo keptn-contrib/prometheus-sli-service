@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"os"
 	"strings"
@@ -132,7 +132,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	for _, indicator := range eventData.Indicators {
 		stdLogger.Info("Fetching indicator: " + indicator)
 		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End)
-		if err != nil {
+		if err != nil || math.IsNaN(sliValue) {
 			sliResults = append(sliResults, &keptnevents.SLIResult{
 				Metric:  indicator,
 				Value:   0,
@@ -277,15 +277,7 @@ func sendEvent(event cloudevents.Event) error {
 	}
 
 	if _, err := c.Send(context.Background(), event); err != nil {
-		err := errors.New("Failed to send cloudevent:, " + err.Error())
-		if err != nil {
-			data, errDetails := json.Marshal(event)
-			if errDetails != nil {
-				return fmt.Errorf("%v with marshalling error %v", err, errDetails)
-			}
-			return fmt.Errorf("%v when sending %s", err, string(data))
-		}
-		return nil
+		return errors.New("Failed to send cloudevent:, " + err.Error())
 	}
 	return nil
 }
