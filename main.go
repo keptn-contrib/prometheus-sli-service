@@ -132,12 +132,19 @@ func retrieveMetrics(event cloudevents.Event) error {
 	for _, indicator := range eventData.Indicators {
 		stdLogger.Info("Fetching indicator: " + indicator)
 		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End)
-		if err != nil || math.IsNaN(sliValue) {
+		if err != nil {
 			sliResults = append(sliResults, &keptnevents.SLIResult{
 				Metric:  indicator,
 				Value:   0,
 				Success: false,
 				Message: err.Error(),
+			})
+		} else if math.IsNaN(sliValue) {
+			sliResults = append(sliResults, &keptnevents.SLIResult{
+				Metric:  indicator,
+				Value:   0,
+				Success: false,
+				Message: "SLI value is NaN",
 			})
 		} else {
 			sliResults = append(sliResults, &keptnevents.SLIResult{
