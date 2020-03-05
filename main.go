@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -276,7 +277,15 @@ func sendEvent(event cloudevents.Event) error {
 	}
 
 	if _, err := c.Send(context.Background(), event); err != nil {
-		return errors.New("Failed to send cloudevent:, " + err.Error())
+		err := errors.New("Failed to send cloudevent:, " + err.Error())
+		if err != nil {
+			data, errDetails := json.Marshal(event)
+			if errDetails != nil {
+				return fmt.Errorf("%v with marshalling error %v", err, errDetails)
+			}
+			return fmt.Errorf("%v when sending %s", err, string(data))
+		}
+		return nil
 	}
 	return nil
 }
