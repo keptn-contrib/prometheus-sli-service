@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"os"
 	"strings"
@@ -137,6 +138,13 @@ func retrieveMetrics(event cloudevents.Event) error {
 				Value:   0,
 				Success: false,
 				Message: err.Error(),
+			})
+		} else if math.IsNaN(sliValue) {
+			sliResults = append(sliResults, &keptnevents.SLIResult{
+				Metric:  indicator,
+				Value:   0,
+				Success: false,
+				Message: "SLI value is NaN",
 			})
 		} else {
 			sliResults = append(sliResults, &keptnevents.SLIResult{
