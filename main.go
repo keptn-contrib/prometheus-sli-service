@@ -156,7 +156,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 	}
 
 	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
-		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy)
+		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy, eventData.Labels)
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
@@ -230,7 +230,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 }
 
 func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string, testStrategy string, deploymentStrategy string) error {
+	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string, testStrategy string, deploymentStrategy string, labels map[string]string) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
 	contentType := "application/json"
@@ -244,6 +244,7 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		End:                end,
 		TestStrategy:       testStrategy,
 		DeploymentStrategy: deploymentStrategy,
+		Labels:             labels,
 	}
 	event := cloudevents.Event{
 		Context: cloudevents.EventContextV02{
