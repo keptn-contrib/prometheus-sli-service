@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"log"
 	"math"
 	"net/url"
@@ -22,9 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
 
-	configutils "github.com/keptn/go-utils/pkg/configuration-service/utils"
-	keptnevents "github.com/keptn/go-utils/pkg/events"
-	keptnutils "github.com/keptn/go-utils/pkg/utils"
+	keptn "github.com/keptn/go-utils/pkg/lib"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -78,7 +77,7 @@ func _main(args []string, env envConfig) int {
 func gotEvent(ctx context.Context, event cloudevents.Event) error {
 
 	switch event.Type() {
-	case keptnevents.InternalGetSLIEventType:
+	case keptn.InternalGetSLIEventType:
 		return retrieveMetrics(event) // backwards compatibility to Keptn versions <= 0.5.x
 	default:
 		return errors.New("received unknown event type")
@@ -88,7 +87,7 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 func retrieveMetrics(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptnevents.InternalGetSLIEventData{}
+	eventData := &keptn.InternalGetSLIEventData{}
 	err := event.DataAs(eventData)
 	if err != nil {
 		return err
@@ -99,22 +98,34 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return nil
 	}
 
-	stdLogger := keptnutils.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
+	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
 	stdLogger.Info("Retrieving Prometheus metrics")
 
-	kubeClient, err := keptnutils.GetKubeAPI(true)
+	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
 		stdLogger.Error("could not create Kubernetes client")
 		return errors.New("could not create Kubernetes client")
 	}
 
-	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient, stdLogger)
+	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		stdLogger.Error("could not create Kubernetes client")
+		return errors.New("could not create Kubernetes client")
+	}
+
+	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient.CoreV1(), stdLogger)
 	if err != nil {
 		return err
 	}
 
+	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{})
+	if err != nil {
+		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
+		stdLogger.Error(err.Error())
+		return err
+	}
 	// retrieve custom metrics for project
-	projectCustomQueries, err := getCustomQueries(eventData.Project, eventData.Stage, eventData.Service, kubeClient, stdLogger)
+	projectCustomQueries, err := getCustomQueries(keptnHandler, eventData.Project, eventData.Stage, eventData.Service, stdLogger)
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
 		stdLogger.Error(err.Error())
@@ -127,27 +138,27 @@ func retrieveMetrics(event cloudevents.Event) error {
 		prometheusHandler.CustomQueries = projectCustomQueries
 	}
 
-	var sliResults []*keptnevents.SLIResult
+	var sliResults []*keptn.SLIResult
 
 	for _, indicator := range eventData.Indicators {
 		stdLogger.Info("Fetching indicator: " + indicator)
 		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End)
 		if err != nil {
-			sliResults = append(sliResults, &keptnevents.SLIResult{
+			sliResults = append(sliResults, &keptn.SLIResult{
 				Metric:  indicator,
 				Value:   0,
 				Success: false,
 				Message: err.Error(),
 			})
 		} else if math.IsNaN(sliValue) {
-			sliResults = append(sliResults, &keptnevents.SLIResult{
+			sliResults = append(sliResults, &keptn.SLIResult{
 				Metric:  indicator,
 				Value:   0,
 				Success: false,
 				Message: "SLI value is NaN",
 			})
 		} else {
-			sliResults = append(sliResults, &keptnevents.SLIResult{
+			sliResults = append(sliResults, &keptn.SLIResult{
 				Metric:  indicator,
 				Value:   sliValue,
 				Success: true,
@@ -155,21 +166,15 @@ func retrieveMetrics(event cloudevents.Event) error {
 		}
 	}
 
-	return sendInternalGetSLIDoneEvent(shkeptncontext, eventData.Project, eventData.Service, eventData.Stage,
+	return sendInternalGetSLIDoneEvent(keptnHandler,
 		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy, eventData.Labels)
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
-func getCustomQueries(project string, stage string, service string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (map[string]string, error) {
+func getCustomQueries(keptnHandler *keptn.Keptn, project string, stage string, service string, logger *keptn.Logger) (map[string]string, error) {
 	logger.Info("Checking for custom SLI queries")
 
-	endPoint, err := getServiceEndpoint(configservice)
-	if err != nil {
-		return nil, errors.New("Failed to retrieve endpoint of configuration-service. %s" + err.Error())
-	}
-
-	resourceHandler := configutils.NewResourceHandler(endPoint.String())
-	customQueries, err := resourceHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
+	customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +182,7 @@ func getCustomQueries(project string, stage string, service string, kubeClient v
 	return customQueries, nil
 }
 
-func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptnutils.Logger) (string, error) {
+func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptn.Logger) (string, error) {
 	logger.Info("Checking if external prometheus instance has been defined for project " + project)
 	// check if secret 'prometheus-credentials-<project> exists
 
@@ -229,16 +234,15 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 	return strings.Replace(prometheusURL, " ", "", -1)
 }
 
-func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
-	service string, stage string, indicatorValues []*keptnevents.SLIResult, start string, end string, testStrategy string, deploymentStrategy string, labels map[string]string) error {
+func sendInternalGetSLIDoneEvent(keptnHandler *keptn.Keptn, indicatorValues []*keptn.SLIResult, start string, end string, testStrategy string, deploymentStrategy string, labels map[string]string) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
 	contentType := "application/json"
 
-	getSLIEvent := keptnevents.InternalGetSLIDoneEventData{
-		Project:            project,
-		Service:            service,
-		Stage:              stage,
+	getSLIEvent := keptn.InternalGetSLIDoneEventData{
+		Project:            keptnHandler.KeptnBase.Project,
+		Service:            keptnHandler.KeptnBase.Service,
+		Stage:              keptnHandler.KeptnBase.Stage,
 		IndicatorValues:    indicatorValues,
 		Start:              start,
 		End:                end,
@@ -250,56 +254,13 @@ func sendInternalGetSLIDoneEvent(shkeptncontext string, project string,
 		Context: cloudevents.EventContextV02{
 			ID:          uuid.New().String(),
 			Time:        &types.Timestamp{Time: time.Now()},
-			Type:        keptnevents.InternalGetSLIDoneEventType,
+			Type:        keptn.InternalGetSLIDoneEventType,
 			Source:      types.URLRef{URL: *source},
 			ContentType: &contentType,
-			Extensions:  map[string]interface{}{"shkeptncontext": shkeptncontext},
+			Extensions:  map[string]interface{}{"shkeptncontext": keptnHandler.KeptnContext},
 		}.AsV02(),
 		Data: getSLIEvent,
 	}
 
-	return sendEvent(event)
-}
-
-func sendEvent(event cloudevents.Event) error {
-	endPoint, err := getServiceEndpoint(eventbroker)
-	if err != nil {
-		return errors.New("Failed to retrieve endpoint of eventbroker. %s" + err.Error())
-	}
-
-	if endPoint.Host == "" {
-		return errors.New("Host of eventbroker not set")
-	}
-
-	transport, err := cloudeventshttp.New(
-		cloudeventshttp.WithTarget(endPoint.String()),
-		cloudeventshttp.WithEncoding(cloudeventshttp.StructuredV02),
-	)
-	if err != nil {
-		return errors.New("Failed to create transport:" + err.Error())
-	}
-
-	c, err := client.New(transport)
-	if err != nil {
-		return errors.New("Failed to create HTTP client:" + err.Error())
-	}
-
-	if _, err := c.Send(context.Background(), event); err != nil {
-		return errors.New("Failed to send cloudevent:, " + err.Error())
-	}
-	return nil
-}
-
-// getServiceEndpoint gets an endpoint stored in an environment variable and sets http as default scheme
-func getServiceEndpoint(service string) (url.URL, error) {
-	url, err := url.Parse(os.Getenv(service))
-	if err != nil {
-		return *url, fmt.Errorf("Failed to retrieve value from ENVIRONMENT_VARIABLE: %s", service)
-	}
-
-	if url.Scheme == "" {
-		url.Scheme = "http"
-	}
-
-	return *url, nil
+	return keptnHandler.SendCloudEvent(event)
 }

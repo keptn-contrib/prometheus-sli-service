@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	keptnevents "github.com/keptn/go-utils/pkg/events"
+	"github.com/keptn/go-utils/pkg/lib"
 )
 
 const Throughput = "throughput"
@@ -43,12 +43,12 @@ type Handler struct {
 	Stage         string
 	Service       string
 	HTTPClient    *http.Client
-	CustomFilters []*keptnevents.SLIFilter
+	CustomFilters []*keptn.SLIFilter
 	CustomQueries map[string]string
 }
 
 // NewPrometheusHandler returns a new prometheus handler that interacts with the Prometheus REST API
-func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptnevents.SLIFilter) *Handler {
+func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptn.SLIFilter) *Handler {
 	ph := &Handler{
 		ApiURL:        apiURL,
 		Project:       project,
