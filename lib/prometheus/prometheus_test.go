@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	keptnevents "github.com/keptn/go-utils/pkg/events"
+	keptnevents "github.com/keptn/go-utils/pkg/lib"
 )
 
 func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
