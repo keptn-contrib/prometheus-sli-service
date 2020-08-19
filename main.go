@@ -44,6 +44,8 @@ type prometheusCredentials struct {
 	Password string `json:"password" yaml:"password"`
 }
 
+var namespace = setParameterValue(os.Getenv("POD_NAMESPACE"), "keptn")
+
 func main() {
 	var env envConfig
 	if err := envconfig.Process("", &env); err != nil {
@@ -186,7 +188,7 @@ func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *
 	logger.Info("Checking if external prometheus instance has been defined for project " + project)
 	// check if secret 'prometheus-credentials-<project> exists
 
-	secret, err := kubeClient.Secrets("keptn").Get("prometheus-credentials-"+project, metav1.GetOptions{})
+	secret, err := kubeClient.Secrets(namespace).Get("prometheus-credentials-"+project, metav1.GetOptions{})
 
 	// return cluster-internal prometheus URL if no secret has been found
 	if err != nil {
@@ -263,4 +265,11 @@ func sendInternalGetSLIDoneEvent(keptnHandler *keptn.Keptn, indicatorValues []*k
 	}
 
 	return keptnHandler.SendCloudEvent(event)
+}
+
+func setParameterValue(value string, defaultValue string) string {
+	if len(value) == 0 {
+		return defaultValue
+	}
+	return value
 }
