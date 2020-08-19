@@ -44,7 +44,7 @@ type prometheusCredentials struct {
 	Password string `json:"password" yaml:"password"`
 }
 
-var namespace = setParameterValue(os.Getenv("POD_NAMESPACE"), "keptn")
+var namespace = os.Getenv("POD_NAMESPACE")
 
 func main() {
 	var env envConfig
@@ -265,11 +265,4 @@ func sendInternalGetSLIDoneEvent(keptnHandler *keptn.Keptn, indicatorValues []*k
 	}
 
 	return keptnHandler.SendCloudEvent(event)
-}
-
-func setParameterValue(value string, defaultValue string) string {
-	if len(value) == 0 {
-		return defaultValue
-	}
-	return value
 }
