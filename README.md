@@ -24,7 +24,10 @@ Please always double check the version of Keptn you are using compared to the ve
 
 | Keptn Version    | [Prometheus SLI Service Image](https://hub.docker.com/r/keptncontrib/prometheus-sli-service/tags) |
 |:----------------:|:----------------------------------------:|
+|       0.6.1      | keptn/prometheus-service:0.2.1  |
+|       0.6.2      | keptn/prometheus-service:0.2.2  |
 |       0.7.0      | keptn/prometheus-service:0.2.2  |
+|       0.7.1      | keptn/prometheus-service:0.2.2  |
 
 ## Basic Usage 
 
