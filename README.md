@@ -17,6 +17,18 @@ The supported default SLIs are:
  
 The provided SLIs are based on the [RED metrics](https://grafana.com/files/grafanacon_eu_2018/Tom_Wilkie_GrafanaCon_EU_2018.pdf)
 
+## Compatibility Matrix
+
+Please always double check the version of Keptn you are using compared to the version of this service, and follow the compatibility matrix below.
+
+
+| Keptn Version    | [Prometheus SLI Service Image](https://hub.docker.com/r/keptncontrib/prometheus-sli-service/tags) |
+|:----------------:|:----------------------------------------:|
+|       0.6.1      | keptn/prometheus-service:0.2.1  |
+|       0.6.2      | keptn/prometheus-service:0.2.2  |
+|       0.7.0      | keptn/prometheus-service:0.2.2  |
+|       0.7.1      | keptn/prometheus-service:0.2.2  |
+
 ## Basic Usage 
 
 Per default, the service works with the following assumptions regarding the setup of the Prometheus instance:
