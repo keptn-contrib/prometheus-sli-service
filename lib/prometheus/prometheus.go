@@ -108,7 +108,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *
 
 	parsedValue := fmt.Sprintf("%v", prometheusResult.Data.Result[0].Value[1])
 	floatValue, err := strconv.ParseFloat(parsedValue, 64)
-	logger.Info("Prometheus Result is ", floatValue)
+	logger.Info(fmt.Sprintf("Prometheus Result is %v", floatValue))
 	if err != nil {
 		return 0, nil
 	}
