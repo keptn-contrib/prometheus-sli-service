@@ -77,7 +77,7 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *
 		return 0, err
 	}
 	queryString := ph.ApiURL + "/api/v1/query?query=" + url.QueryEscape(query) + "&time=" + strconv.FormatInt(endUnix.Unix(), 10)
-	logger.Info("Generated query: /api/v1/query?query=" + url.QueryEscape(query) + "&time=" + strconv.FormatInt(endUnix.Unix(), 10))
+	logger.Info("Generated query: /api/v1/query?query=" + query + "&time=" + strconv.FormatInt(endUnix.Unix(), 10))
 
 	req, err := http.NewRequest("GET", queryString, nil)
 	req.Header.Set("Content-Type", "application/json")
