@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"log"
 	"math"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/keptn-contrib/prometheus-sli-service/lib/prometheus"
 	"gopkg.in/yaml.v2"
@@ -144,7 +145,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 
 	for _, indicator := range eventData.Indicators {
 		stdLogger.Info("Fetching indicator: " + indicator)
-		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End)
+		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End, stdLogger)
 		if err != nil {
 			sliResults = append(sliResults, &keptn.SLIResult{
 				Metric:  indicator,

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/keptn/go-utils/pkg/lib"
+	keptn "github.com/keptn/go-utils/pkg/lib"
 )
 
 const Throughput = "throughput"
@@ -61,7 +61,7 @@ func NewPrometheusHandler(apiURL string, project string, stage string, service s
 	return ph
 }
 
-func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64, error) {
+func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *keptn.Logger) (float64, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	startUnix, err := parseUnixTimestamp(start)
@@ -77,6 +77,8 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64
 		return 0, err
 	}
 	queryString := ph.ApiURL + "/api/v1/query?query=" + url.QueryEscape(query) + "&time=" + strconv.FormatInt(endUnix.Unix(), 10)
+	logger.Info("Generated query: /api/v1/query?query=" + query + "&time=" + strconv.FormatInt(endUnix.Unix(), 10))
+
 	req, err := http.NewRequest("GET", queryString, nil)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -99,12 +101,14 @@ func (ph *Handler) GetSLIValue(metric string, start string, end string) (float64
 	}
 
 	if len(prometheusResult.Data.Result) == 0 || len(prometheusResult.Data.Result[0].Value) == 0 {
+		logger.Info("Prometheus Result is 0, returning value 0")
 		// for the error rate query, the result is received with no value if the error rate is 0, so we have to assume that's OK at this point
 		return 0, nil
 	}
 
 	parsedValue := fmt.Sprintf("%v", prometheusResult.Data.Result[0].Value[1])
 	floatValue, err := strconv.ParseFloat(parsedValue, 64)
+	logger.Info(fmt.Sprintf("Prometheus Result is %v", floatValue))
 	if err != nil {
 		return 0, nil
 	}
