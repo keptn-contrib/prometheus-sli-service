@@ -28,6 +28,7 @@ Please always double check the version of Keptn you are using compared to the ve
 |       0.6.2      | keptn/prometheus-service:0.2.2  |
 |       0.7.0      | keptn/prometheus-service:0.2.2  |
 |       0.7.1      | keptn/prometheus-service:0.2.2  |
+|       0.7.2      | keptn/prometheus-service:0.2.3  |
 
 ## Basic Usage 
 
@@ -109,7 +110,8 @@ rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$handler'}[$DURAT
 To deploy the current version of the *prometheus-sli-service* in your Keptn Kubernetes cluster, use the file `deploy/service.yaml` from this repository and apply it:
 
 ```console
-kubectl apply -f deploy/service.yaml
+KEPTN_NAMESPACE=<your keptn namespace>
+kubectl apply -f deploy/service.yaml -n $KEPTN_NAMESPACE
 ```
 
 ## Delete in your Kubernetes cluster
@@ -117,5 +119,6 @@ kubectl apply -f deploy/service.yaml
 To delete a deployed *prometheus-sli-service*, use the file `deploy/service.yaml` from this repository and delete the Kubernetes resources:
 
 ```console
-kubectl delete -f deploy/service.yaml
+KEPTN_NAMESPACE=<your keptn namespace>
+kubectl delete -f deploy/service.yaml -n $KEPTN_NAMESPACE
 ```
