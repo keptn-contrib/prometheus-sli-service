@@ -322,7 +322,8 @@ func TestGetSLIValue(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, _ := ph.GetSLIValue(Throughput, start, end)
+	logger := keptnevents.NewLogger("", "", "")
+	value, _ := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.20111420612813372)
 }
@@ -349,7 +350,8 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, _ := ph.GetSLIValue(Throughput, start, end)
+	logger := keptnevents.NewLogger("", "", "")
+	value, _ := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.0)
 }
@@ -368,7 +370,8 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	value, err := ph.GetSLIValue(Throughput, start, end)
+	logger := keptnevents.NewLogger("", "", "")
+	value, err := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.0)
 	assert.NotNil(t, err, nil)
