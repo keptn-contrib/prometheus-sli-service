@@ -126,7 +126,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		eventBrokerURL = "http://event-broker/keptn"
 	}
 	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
-		EventBrokerURL: os.Getenv("EVENTBROKER"),
+		EventBrokerURL: eventBrokerURL,
 	})
 	if err != nil {
 		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
