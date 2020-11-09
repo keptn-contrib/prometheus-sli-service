@@ -3,28 +3,24 @@ package main
 import (
 	"context"
 	"errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"log"
 	"math"
 	"net/url"
 	"os"
 	"strings"
-	"time"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/keptn-contrib/prometheus-sli-service/lib/prometheus"
 	"gopkg.in/yaml.v2"
 
-	"github.com/cloudevents/sdk-go/pkg/cloudevents"
-	"github.com/cloudevents/sdk-go/pkg/cloudevents/client"
-	cloudeventshttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
-	"github.com/cloudevents/sdk-go/pkg/cloudevents/types"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 
-	"github.com/google/uuid"
 	"github.com/kelseyhightower/envconfig"
 
 	keptn "github.com/keptn/go-utils/pkg/lib"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
+	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -58,21 +54,17 @@ func main() {
 func _main(args []string, env envConfig) int {
 
 	ctx := context.Background()
+	ctx = cloudevents.WithEncodingStructured(ctx)
 
-	t, err := cloudeventshttp.New(
-		cloudeventshttp.WithPort(env.Port),
-		cloudeventshttp.WithPath(env.Path),
-	)
-
-	if err != nil {
-		log.Fatalf("failed to create transport, %v", err)
-	}
-	c, err := client.New(t)
+	p, err := cloudevents.NewHTTP(cloudevents.WithPath(env.Path), cloudevents.WithPort(env.Port))
 	if err != nil {
 		log.Fatalf("failed to create client, %v", err)
 	}
-
-	log.Fatalf("failed to start receiver: %s", c.StartReceiver(ctx, gotEvent))
+	c, err := cloudevents.NewClient(p)
+	if err != nil {
+		log.Fatalf("failed to create client, %v", err)
+	}
+	log.Fatal(c.StartReceiver(ctx, gotEvent))
 
 	return 0
 }
@@ -101,7 +93,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return nil
 	}
 
-	stdLogger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
+	stdLogger := keptncommon.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
 	stdLogger.Info("Retrieving Prometheus metrics")
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -125,7 +117,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 	if eventBrokerURL == "" {
 		eventBrokerURL = "http://event-broker/keptn"
 	}
-	keptnHandler, err := keptn.NewKeptn(&event, keptn.KeptnOpts{
+
+	keptnHandler, err := keptnv2.NewKeptn(&event, keptncommon.KeptnOpts{
 		EventBrokerURL: eventBrokerURL,
 	})
 	if err != nil {
@@ -180,7 +173,7 @@ func retrieveMetrics(event cloudevents.Event) error {
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
-func getCustomQueries(keptnHandler *keptn.Keptn, project string, stage string, service string, logger *keptn.Logger) (map[string]string, error) {
+func getCustomQueries(keptnHandler *keptnv2.Keptn, project string, stage string, service string, logger *keptncommon.Logger) (map[string]string, error) {
 	logger.Info("Checking for custom SLI queries")
 
 	customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
@@ -191,7 +184,7 @@ func getCustomQueries(keptnHandler *keptn.Keptn, project string, stage string, s
 	return customQueries, nil
 }
 
-func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptn.Logger) (string, error) {
+func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptncommon.Logger) (string, error) {
 	logger.Info("Checking if external prometheus instance has been defined for project " + project)
 	// check if secret 'prometheus-credentials-<project> exists
 
@@ -243,15 +236,14 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 	return strings.Replace(prometheusURL, " ", "", -1)
 }
 
-func sendInternalGetSLIDoneEvent(keptnHandler *keptn.Keptn, indicatorValues []*keptn.SLIResult, start string, end string, testStrategy string, deploymentStrategy string, labels map[string]string) error {
+func sendInternalGetSLIDoneEvent(keptnHandler *keptnv2.Keptn, indicatorValues []*keptn.SLIResult, start string, end string, testStrategy string, deploymentStrategy string, labels map[string]string) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
-	contentType := "application/json"
 
 	getSLIEvent := keptn.InternalGetSLIDoneEventData{
-		Project:            keptnHandler.KeptnBase.Project,
-		Service:            keptnHandler.KeptnBase.Service,
-		Stage:              keptnHandler.KeptnBase.Stage,
+		Project:            keptnHandler.KeptnBase.Event.GetProject(),
+		Service:            keptnHandler.KeptnBase.Event.GetService(),
+		Stage:              keptnHandler.KeptnBase.Event.GetStage(),
 		IndicatorValues:    indicatorValues,
 		Start:              start,
 		End:                end,
@@ -259,17 +251,13 @@ func sendInternalGetSLIDoneEvent(keptnHandler *keptn.Keptn, indicatorValues []*k
 		DeploymentStrategy: deploymentStrategy,
 		Labels:             labels,
 	}
-	event := cloudevents.Event{
-		Context: cloudevents.EventContextV02{
-			ID:          uuid.New().String(),
-			Time:        &types.Timestamp{Time: time.Now()},
-			Type:        keptn.InternalGetSLIDoneEventType,
-			Source:      types.URLRef{URL: *source},
-			ContentType: &contentType,
-			Extensions:  map[string]interface{}{"shkeptncontext": keptnHandler.KeptnContext},
-		}.AsV02(),
-		Data: getSLIEvent,
-	}
+
+	event := cloudevents.NewEvent()
+	event.SetType(keptn.InternalGetSLIDoneEventType)
+	event.SetSource(source.String())
+	event.SetDataContentType(cloudevents.ApplicationJSON)
+	event.SetExtension("shkeptncontext", keptnHandler.KeptnContext)
+	event.SetData(cloudevents.ApplicationJSON, getSLIEvent)
 
 	return keptnHandler.SendCloudEvent(event)
 }
