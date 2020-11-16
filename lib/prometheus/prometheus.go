@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -61,7 +62,8 @@ func NewPrometheusHandler(apiURL string, project string, stage string, service s
 	return ph
 }
 
-func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *keptn.Logger) (float64, error) {
+// GetSLIValue retrieves the specified value via the Prometheus API
+func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *keptncommon.Logger) (float64, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	startUnix, err := parseUnixTimestamp(start)

@@ -1,6 +1,7 @@
 package prometheus
 
 import (
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"net"
@@ -322,7 +323,7 @@ func TestGetSLIValue(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	logger := keptnevents.NewLogger("", "", "")
+	logger := keptncommon.NewLogger("", "", "")
 	value, _ := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.20111420612813372)
@@ -350,7 +351,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	logger := keptnevents.NewLogger("", "", "")
+	logger := keptncommon.NewLogger("", "", "")
 	value, _ := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.0)
@@ -370,7 +371,7 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	logger := keptnevents.NewLogger("", "", "")
+	logger := keptncommon.NewLogger("", "", "")
 	value, err := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.0)
