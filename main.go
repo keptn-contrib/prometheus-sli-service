@@ -68,17 +68,17 @@ func _main(args []string, env envConfig) int {
 	return 0
 }
 
-func gotEvent(ctx context.Context, event cloudevents.Event) error {
+func gotEvent(event cloudevents.Event) error {
 
 	switch event.Type() {
 	case keptnv2.GetTriggeredEventType(keptnv2.GetSLITaskName):
-		return retrieveMetrics(event) // backwards compatibility to Keptn versions <= 0.5.x
+		return processEvent(event) // backwards compatibility to Keptn versions <= 0.5.x
 	default:
 		return errors.New("received unknown event type")
 	}
 }
 
-func retrieveMetrics(event cloudevents.Event) error {
+func processEvent(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
 
