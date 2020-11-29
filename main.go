@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"log"
@@ -17,8 +18,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 
 	"github.com/kelseyhightower/envconfig"
-
-	keptn "github.com/keptn/go-utils/pkg/lib"
 	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
 	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +71,7 @@ func _main(args []string, env envConfig) int {
 func gotEvent(ctx context.Context, event cloudevents.Event) error {
 
 	switch event.Type() {
-	case keptn.InternalGetSLIEventType:
+	case keptnv2.GetTriggeredEventType(keptnv2.GetSLITaskName):
 		return retrieveMetrics(event) // backwards compatibility to Keptn versions <= 0.5.x
 	default:
 		return errors.New("received unknown event type")
@@ -82,15 +81,21 @@ func gotEvent(ctx context.Context, event cloudevents.Event) error {
 func retrieveMetrics(event cloudevents.Event) error {
 	var shkeptncontext string
 	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-	eventData := &keptn.InternalGetSLIEventData{}
+
+	eventData := &keptnv2.GetSLITriggeredEventData{}
 	err := event.DataAs(eventData)
 	if err != nil {
 		return err
 	}
 
 	// don't continue if SLIProvider is not prometheus
-	if eventData.SLIProvider != "prometheus" {
+	if eventData.GetSLI.SLIProvider != "prometheus" {
 		return nil
+	}
+
+	err = sendGetSLIStartedEvent(event, eventData)
+	if err != nil {
+		return err
 	}
 
 	stdLogger := keptncommon.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
@@ -134,33 +139,33 @@ func retrieveMetrics(event cloudevents.Event) error {
 		return err
 	}
 
-	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.CustomFilters)
+	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.GetSLI.CustomFilters)
 
 	if projectCustomQueries != nil {
 		prometheusHandler.CustomQueries = projectCustomQueries
 	}
 
-	var sliResults []*keptn.SLIResult
+	var sliResults []*keptnv2.SLIResult
 
-	for _, indicator := range eventData.Indicators {
+	for _, indicator := range eventData.GetSLI.Indicators {
 		stdLogger.Info("Fetching indicator: " + indicator)
-		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.Start, eventData.End, stdLogger)
+		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.GetSLI.Start, eventData.GetSLI.End, stdLogger)
 		if err != nil {
-			sliResults = append(sliResults, &keptn.SLIResult{
+			sliResults = append(sliResults, &keptnv2.SLIResult{
 				Metric:  indicator,
 				Value:   0,
 				Success: false,
 				Message: err.Error(),
 			})
 		} else if math.IsNaN(sliValue) {
-			sliResults = append(sliResults, &keptn.SLIResult{
+			sliResults = append(sliResults, &keptnv2.SLIResult{
 				Metric:  indicator,
 				Value:   0,
 				Success: false,
 				Message: "SLI value is NaN",
 			})
 		} else {
-			sliResults = append(sliResults, &keptn.SLIResult{
+			sliResults = append(sliResults, &keptnv2.SLIResult{
 				Metric:  indicator,
 				Value:   sliValue,
 				Success: true,
@@ -168,8 +173,8 @@ func retrieveMetrics(event cloudevents.Event) error {
 		}
 	}
 
-	return sendInternalGetSLIDoneEvent(keptnHandler,
-		sliResults, eventData.Start, eventData.End, eventData.TestStrategy, eventData.DeploymentStrategy, eventData.Labels)
+	return sendGetSLIFinishedEvent(event, eventData, sliResults)
+
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
@@ -236,28 +241,85 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 	return strings.Replace(prometheusURL, " ", "", -1)
 }
 
-func sendInternalGetSLIDoneEvent(keptnHandler *keptnv2.Keptn, indicatorValues []*keptn.SLIResult, start string, end string, testStrategy string, deploymentStrategy string, labels map[string]string) error {
+func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
 
-	getSLIEvent := keptn.InternalGetSLIDoneEventData{
-		Project:            keptnHandler.KeptnBase.Event.GetProject(),
-		Service:            keptnHandler.KeptnBase.Event.GetService(),
-		Stage:              keptnHandler.KeptnBase.Event.GetStage(),
-		IndicatorValues:    indicatorValues,
-		Start:              start,
-		End:                end,
-		TestStrategy:       testStrategy,
-		DeploymentStrategy: deploymentStrategy,
-		Labels:             labels,
+	getSLIStartedEvent := keptnv2.GetSLIStartedEventData{
+		EventData: keptnv2.EventData{
+			Project: eventData.Project,
+			Stage:   eventData.Stage,
+			Service: eventData.Service,
+			Labels:  eventData.Labels,
+			Status:  keptnv2.StatusSucceeded,
+			Result:  keptnv2.ResultPass,
+		},
+	}
+
+	keptnContext, err := inputEvent.Context.GetExtension("shkeptncontext")
+
+	if err != nil {
+		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
 	}
 
 	event := cloudevents.NewEvent()
-	event.SetType(keptn.InternalGetSLIDoneEventType)
+	event.SetType(keptnv2.GetStartedEventType(keptnv2.GetSLITaskName))
 	event.SetSource(source.String())
 	event.SetDataContentType(cloudevents.ApplicationJSON)
-	event.SetExtension("shkeptncontext", keptnHandler.KeptnContext)
+	event.SetExtension("shkeptncontext", keptnContext)
+	event.SetExtension("triggeredid", inputEvent.ID())
+	event.SetData(cloudevents.ApplicationJSON, getSLIStartedEvent)
+
+	return sendEvent(event)
+}
+
+func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, indicatorValues []*keptnv2.SLIResult) error {
+	source, _ := url.Parse("prometheus-sli-service")
+
+	getSLIEvent := keptnv2.GetSLIFinishedEventData{
+		EventData: keptnv2.EventData{
+			Project: eventData.Project,
+			Stage:   eventData.Stage,
+			Service: eventData.Service,
+			Labels:  eventData.Labels,
+			Status:  keptnv2.StatusSucceeded,
+			Result:  keptnv2.ResultPass,
+		},
+		GetSLI: struct {
+			Start           string               `json:"start"`
+			End             string               `json:"end"`
+			IndicatorValues []*keptnv2.SLIResult `json:"indicatorValues"`
+		}{
+			IndicatorValues: indicatorValues,
+			Start:           eventData.GetSLI.Start,
+			End:             eventData.GetSLI.End,
+		},
+	}
+	keptnContext, err := inputEvent.Context.GetExtension("shkeptncontext")
+
+	if err != nil {
+		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
+	}
+
+	event := cloudevents.NewEvent()
+	event.SetType(keptnv2.GetFinishedEventType(keptnv2.GetSLITaskName))
+	event.SetSource(source.String())
+	event.SetDataContentType(cloudevents.ApplicationJSON)
+	event.SetExtension("shkeptncontext", keptnContext)
+	event.SetExtension("triggeredid", inputEvent.ID())
 	event.SetData(cloudevents.ApplicationJSON, getSLIEvent)
 
-	return keptnHandler.SendCloudEvent(event)
+	return sendEvent(event)
+}
+
+func sendEvent(event cloudevents.Event) error {
+
+	keptnHandler, err := keptnv2.NewKeptn(&event, keptncommon.KeptnOpts{})
+	if err != nil {
+		return err
+	}
+
+	_ = keptnHandler.SendCloudEvent(event)
+
+	return nil
 }
