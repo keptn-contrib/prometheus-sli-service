@@ -28,6 +28,7 @@ import (
 const configservice = "CONFIGURATION_SERVICE"
 const eventbroker = "EVENTBROKER"
 const sliResourceURI = "prometheus/sli.yaml"
+const serviceName = "prometheus-sli-service"
 
 type envConfig struct {
 	// Port on which to listen for cloudevents
@@ -92,7 +93,7 @@ func processEvent(event cloudevents.Event) error {
 		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
 	}
 
-	log := keptncommon.NewLogger(keptnCtx, event.Context.GetID(), "prometheus-sli-service")
+	log := keptncommon.NewLogger(keptnCtx, event.Context.GetID(), serviceName)
 
 	// don't continue if SLIProvider is not prometheus
 	if eventData.GetSLI.SLIProvider != "prometheus" {
@@ -123,7 +124,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Error("could not create Kubernetes client")
+		log.Error("could not create Kubernetes cluster config")
 		return nil, errors.New("could not create Kubernetes client")
 	}
 
@@ -261,7 +262,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 
 func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, keptnContext interface{}) error {
 
-	source, _ := url.Parse("prometheus-sli-service")
+	source, _ := url.Parse(serviceName)
 
 	getSLIStartedEvent := keptnv2.GetSLIStartedEventData{
 		EventData: keptnv2.EventData{
@@ -286,8 +287,7 @@ func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.Get
 }
 
 func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, indicatorValues []*keptnv2.SLIResult, err error, keptnContext interface{}) error {
-	source, _ := url.Parse("prometheus-sli-service")
-
+	source, _ := url.Parse(serviceName)
 	var status = keptnv2.StatusSucceeded
 	var result = keptnv2.ResultPass
 	var message = ""
