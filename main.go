@@ -343,7 +343,5 @@ func sendEvent(event cloudevents.Event) error {
 		return err
 	}
 
-	_ = keptnHandler.SendCloudEvent(event)
-
-	return nil
+	return keptnHandler.SendCloudEvent(event)
 }
