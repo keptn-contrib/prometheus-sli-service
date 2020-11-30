@@ -144,23 +144,19 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		eventBrokerURL = "http://event-broker/keptn"
 	}
 
-	keptnHandler, err := keptnv2.NewKeptn(&event, keptncommon.KeptnOpts{
-		EventBrokerURL: eventBrokerURL,
-	})
+	keptnHandler, err := keptnv2.NewKeptn(&event, keptncommon.KeptnOpts{EventBrokerURL: eventBrokerURL})
 	if err != nil {
-		log.Error("Failed to get custom queries for project " + eventData.Project)
-		log.Error(err.Error())
 		return nil, err
 	}
-	// retrieve custom metrics for project
+
+	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.GetSLI.CustomFilters)
+
 	projectCustomQueries, err := getCustomQueries(keptnHandler, eventData.Project, eventData.Stage, eventData.Service, log)
 	if err != nil {
 		log.Error("Failed to get custom queries for project " + eventData.Project)
 		log.Error(err.Error())
 		return nil, err
 	}
-
-	prometheusHandler := prometheus.NewPrometheusHandler(prometheusApiURL, eventData.Project, eventData.Stage, eventData.Service, eventData.GetSLI.CustomFilters)
 
 	if projectCustomQueries != nil {
 		prometheusHandler.CustomQueries = projectCustomQueries
@@ -196,7 +192,6 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	return sliResults, nil
 }
 
-// getCustomQueries returns custom queries as stored in configuration store
 func getCustomQueries(keptnHandler *keptnv2.Keptn, project string, stage string, service string, logger keptncommon.LoggerInterface) (map[string]string, error) {
 	logger.Info("Checking for custom SLI queries")
 
@@ -210,8 +205,6 @@ func getCustomQueries(keptnHandler *keptnv2.Keptn, project string, stage string,
 
 func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger keptncommon.LoggerInterface) (string, error) {
 	logger.Info("Checking if external prometheus instance has been defined for project " + project)
-	// check if secret 'prometheus-credentials-<project> exists
-
 	secret, err := kubeClient.Secrets(namespace).Get("prometheus-credentials-"+project, metav1.GetOptions{})
 
 	// return cluster-internal prometheus URL if no secret has been found
@@ -220,12 +213,6 @@ func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger k
 		return "http://prometheus-service.monitoring.svc.cluster.local:8080", nil
 	}
 
-	/*
-		required data format of the secret:
-		  url: string
-		  user: string
-		  password: string
-	*/
 	pc := &prometheusCredentials{}
 	err = yaml.Unmarshal(secret.Data["prometheus-credentials"], pc)
 
