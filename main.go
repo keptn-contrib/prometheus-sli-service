@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cloudevents/sdk-go/v2/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"log"
@@ -86,6 +87,13 @@ func processEvent(event cloudevents.Event) error {
 		return err
 	}
 
+	keptnCtx, err := types.ToString(event.Context.GetExtensions()["shkeptncontext"])
+	if err != nil {
+		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
+	}
+
+	log := keptncommon.NewLogger(keptnCtx, event.Context.GetID(), "prometheus-sli-service")
+
 	// don't continue if SLIProvider is not prometheus
 	if eventData.GetSLI.SLIProvider != "prometheus" {
 		return nil
@@ -93,43 +101,39 @@ func processEvent(event cloudevents.Event) error {
 
 	// 1: send .started event
 	var sliResults = []*keptnv2.SLIResult{}
-	if err = sendGetSLIStartedEvent(event, eventData); err != nil {
-		if err = sendGetSLIFinishedEvent(event, eventData, sliResults, err); err != nil {
+	if err = sendGetSLIStartedEvent(event, eventData, keptnCtx); err != nil {
+		if err = sendGetSLIFinishedEvent(event, eventData, sliResults, err, keptnCtx); err != nil {
 			return err
 		}
 	}
 
 	// 2: try to fetch metrics
-	if sliResults, err = retrieveMetrics(event, eventData); err != nil {
-		if err = sendGetSLIFinishedEvent(event, eventData, sliResults, err); err != nil {
+	if sliResults, err = retrieveMetrics(event, eventData, log); err != nil {
+		if err = sendGetSLIFinishedEvent(event, eventData, sliResults, err, keptnCtx); err != nil {
 			return err
 		}
 	}
 
 	// 3: send .finished event
-	return sendGetSLIFinishedEvent(event, eventData, sliResults, nil)
+	return sendGetSLIFinishedEvent(event, eventData, sliResults, nil, keptnCtx)
 }
 
-func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData) ([]*keptnv2.SLIResult, error) {
-	var shkeptncontext string
-	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
-
-	stdLogger := keptncommon.NewLogger(shkeptncontext, event.Context.GetID(), "prometheus-sli-service")
-	stdLogger.Info("Retrieving Prometheus metrics")
+func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, log keptncommon.LoggerInterface) ([]*keptnv2.SLIResult, error) {
+	log.Info("Retrieving Prometheus metrics")
 
 	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		stdLogger.Error("could not create Kubernetes client")
+		log.Error("could not create Kubernetes client")
 		return nil, errors.New("could not create Kubernetes client")
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		stdLogger.Error("could not create Kubernetes client")
+		log.Error("could not create Kubernetes client")
 		return nil, errors.New("could not create Kubernetes client")
 	}
 
-	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient.CoreV1(), stdLogger)
+	prometheusApiURL, err := getPrometheusApiURL(eventData.Project, kubeClient.CoreV1(), log)
 	if err != nil {
 		return nil, err
 	}
@@ -143,15 +147,15 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 		EventBrokerURL: eventBrokerURL,
 	})
 	if err != nil {
-		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
-		stdLogger.Error(err.Error())
+		log.Error("Failed to get custom queries for project " + eventData.Project)
+		log.Error(err.Error())
 		return nil, err
 	}
 	// retrieve custom metrics for project
-	projectCustomQueries, err := getCustomQueries(keptnHandler, eventData.Project, eventData.Stage, eventData.Service, stdLogger)
+	projectCustomQueries, err := getCustomQueries(keptnHandler, eventData.Project, eventData.Stage, eventData.Service, log)
 	if err != nil {
-		stdLogger.Error("Failed to get custom queries for project " + eventData.Project)
-		stdLogger.Error(err.Error())
+		log.Error("Failed to get custom queries for project " + eventData.Project)
+		log.Error(err.Error())
 		return nil, err
 	}
 
@@ -164,8 +168,8 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 	var sliResults []*keptnv2.SLIResult
 
 	for _, indicator := range eventData.GetSLI.Indicators {
-		stdLogger.Info("Fetching indicator: " + indicator)
-		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.GetSLI.Start, eventData.GetSLI.End, stdLogger)
+		log.Info("Fetching indicator: " + indicator)
+		sliValue, err := prometheusHandler.GetSLIValue(indicator, eventData.GetSLI.Start, eventData.GetSLI.End, log)
 		if err != nil {
 			sliResults = append(sliResults, &keptnv2.SLIResult{
 				Metric:  indicator,
@@ -192,7 +196,7 @@ func retrieveMetrics(event cloudevents.Event, eventData *keptnv2.GetSLITriggered
 }
 
 // getCustomQueries returns custom queries as stored in configuration store
-func getCustomQueries(keptnHandler *keptnv2.Keptn, project string, stage string, service string, logger *keptncommon.Logger) (map[string]string, error) {
+func getCustomQueries(keptnHandler *keptnv2.Keptn, project string, stage string, service string, logger keptncommon.LoggerInterface) (map[string]string, error) {
 	logger.Info("Checking for custom SLI queries")
 
 	customQueries, err := keptnHandler.GetSLIConfiguration(project, stage, service, sliResourceURI)
@@ -203,7 +207,7 @@ func getCustomQueries(keptnHandler *keptnv2.Keptn, project string, stage string,
 	return customQueries, nil
 }
 
-func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *keptncommon.Logger) (string, error) {
+func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger keptncommon.LoggerInterface) (string, error) {
 	logger.Info("Checking if external prometheus instance has been defined for project " + project)
 	// check if secret 'prometheus-credentials-<project> exists
 
@@ -255,7 +259,7 @@ func generatePrometheusURL(pc *prometheusCredentials) string {
 	return strings.Replace(prometheusURL, " ", "", -1)
 }
 
-func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData) error {
+func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, keptnContext interface{}) error {
 
 	source, _ := url.Parse("prometheus-sli-service")
 
@@ -270,12 +274,6 @@ func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.Get
 		},
 	}
 
-	keptnContext, err := inputEvent.Context.GetExtension("shkeptncontext")
-
-	if err != nil {
-		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
-	}
-
 	event := cloudevents.NewEvent()
 	event.SetType(keptnv2.GetStartedEventType(keptnv2.GetSLITaskName))
 	event.SetSource(source.String())
@@ -287,7 +285,7 @@ func sendGetSLIStartedEvent(inputEvent cloudevents.Event, eventData *keptnv2.Get
 	return sendEvent(event)
 }
 
-func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, indicatorValues []*keptnv2.SLIResult, err error) error {
+func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.GetSLITriggeredEventData, indicatorValues []*keptnv2.SLIResult, err error, keptnContext interface{}) error {
 	source, _ := url.Parse("prometheus-sli-service")
 
 	var status = keptnv2.StatusSucceeded
@@ -319,11 +317,6 @@ func sendGetSLIFinishedEvent(inputEvent cloudevents.Event, eventData *keptnv2.Ge
 			Start:           eventData.GetSLI.Start,
 			End:             eventData.GetSLI.End,
 		},
-	}
-	keptnContext, err := inputEvent.Context.GetExtension("shkeptncontext")
-
-	if err != nil {
-		return fmt.Errorf("could not determine keptnContext of input event: %s", err.Error())
 	}
 
 	event := cloudevents.NewEvent()

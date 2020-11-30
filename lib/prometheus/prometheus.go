@@ -62,7 +62,7 @@ func NewPrometheusHandler(apiURL string, project string, stage string, service s
 }
 
 // GetSLIValue retrieves the specified value via the Prometheus API
-func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *keptncommon.Logger) (float64, error) {
+func (ph *Handler) GetSLIValue(metric string, start string, end string, logger keptncommon.LoggerInterface) (float64, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	startUnix, err := parseUnixTimestamp(start)
