@@ -14,6 +14,7 @@ spec:
       labels:
         run: prometheus-sli-service
     spec:
+      serviceAccountName: keptn-prometheus-sli-service
       containers:
       - name: prometheus-sli-service
         image: keptncontrib/prometheus-sli-service:latest
@@ -85,3 +86,38 @@ spec:
           value: 'sh.keptn.internal.event.get-sli'
         - name: PUBSUB_RECIPIENT
           value: 'prometheus-sli-service'
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keptn-prometheus-sli-service
+  namespace: keptn
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keptn-read-secret-prometheus
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keptn-prometheus-sli-service
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole 
+  name: keptn-read-secret-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: keptn-prometheus-sli-service
+    namespace: keptn

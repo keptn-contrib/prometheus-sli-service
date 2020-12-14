@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/keptn-contrib/prometheus-sli-service)](https://goreportcard.com/report/github.com/keptn-contrib/prometheus-sli-service)
 
 This service is used for retrieving Service Level Indicators (SLIs) from a Prometheus API endpoint. Per default, it fetches metrics from the prometheus instance set up by Keptn
-(`prometheus-service.monitoring.svc.cluster.local:8080`), but it can also be configures to use any reachable Prometheus endpoint using basic authentication by providing the credentials
+(`prometheus-service.monitoring.svc.cluster.local:8080`), but it can also be configured to use any reachable Prometheus endpoint using basic authentication by providing the credentials
 via a secret in the `keptn` namespace of the cluster.
 
 The supported default SLIs are:
