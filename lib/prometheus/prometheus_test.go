@@ -1,6 +1,8 @@
 package prometheus
 
 import (
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
+	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"net"
@@ -10,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	keptnevents "github.com/keptn/go-utils/pkg/lib"
 )
 
 func testingHTTPClient(handler http.Handler) (*http.Client, func()) {
@@ -44,9 +44,9 @@ func TestGetErrorRateQueryWithoutFilter(t *testing.T) {
 
 func TestGetErrorRateQueryWithFilter(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "=~'ItemsController'",
 	})
@@ -66,12 +66,12 @@ func TestGetErrorRateQueryWithFilter(t *testing.T) {
 
 func TestGetCustomErrorRateQueryWithFilter(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
 	customQueries := map[string]string{}
 	customQueries["error_rate"] = "sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$HANDLER',status!~'2..'}[$DURATION_SECONDS]))/sum(rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$HANDLER'}[$DURATION_SECONDS]))"
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
@@ -107,12 +107,12 @@ func TestGetThroughputQuery(t *testing.T) {
 
 func TestGetCustomThroughputQueryWithFilter(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
 	customQueries := map[string]string{}
 	customQueries["throughput"] = "rate(my_custom_metric{job='$SERVICE-$PROJECT-$STAGE',handler=~'$HANDLER'}[$DURATION_SECONDS])"
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
@@ -147,12 +147,12 @@ func TestGetRequestLatencyQuery(t *testing.T) {
 
 func TestGetCustomResponseTimeQueryWithFilter(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
 	customQueries := map[string]string{}
 	customQueries["response_time_p50"] = "histogram_quantile(0.50,sum(rate(my_custom_response_time_metric{job='$SERVICE-$PROJECT-$STAGE'}[$DURATION_SECONDS]))by(le))"
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
@@ -194,9 +194,9 @@ func TestGetCustomQuery(t *testing.T) {
 
 func TestGetDefaultFilterExpression(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "ItemsController",
 	})
@@ -214,9 +214,9 @@ func TestGetDefaultFilterExpression(t *testing.T) {
 
 func TestGetDefaultFilterExpressionWithOperand(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "!='ItemsController'",
 	})
@@ -234,9 +234,9 @@ func TestGetDefaultFilterExpressionWithOperand(t *testing.T) {
 
 func TestGetDefaultFilterExpressionWithJobName(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "job",
 		Value: "my-job",
 	})
@@ -254,9 +254,9 @@ func TestGetDefaultFilterExpressionWithJobName(t *testing.T) {
 
 func TestGetDefaultFilterExpressionWithSingleQuote(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "'ItemsController'",
 	})
@@ -274,9 +274,9 @@ func TestGetDefaultFilterExpressionWithSingleQuote(t *testing.T) {
 
 func TestGetDefaultFilterExpressionWithDoubleQuote(t *testing.T) {
 
-	var customFilters []*keptnevents.SLIFilter
+	var customFilters []*keptnv2.SLIFilter
 
-	customFilters = append(customFilters, &keptnevents.SLIFilter{
+	customFilters = append(customFilters, &keptnv2.SLIFilter{
 		Key:   "handler",
 		Value: "\"ItemsController\"",
 	})
@@ -322,7 +322,7 @@ func TestGetSLIValue(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	logger := keptnevents.NewLogger("", "", "")
+	logger := keptncommon.NewLogger("", "", "")
 	value, _ := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.20111420612813372)
@@ -350,7 +350,7 @@ func TestGetSLIValueWithEmptyResult(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	logger := keptnevents.NewLogger("", "", "")
+	logger := keptncommon.NewLogger("", "", "")
 	value, _ := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.0)
@@ -370,7 +370,7 @@ func TestGetSLIValueWithErrorResponse(t *testing.T) {
 
 	start := strconv.FormatInt(time.Unix(1571649084, 0).UTC().UnixNano(), 10)
 	end := strconv.FormatInt(time.Unix(1571649085, 0).UTC().UnixNano(), 10)
-	logger := keptnevents.NewLogger("", "", "")
+	logger := keptncommon.NewLogger("", "", "")
 	value, err := ph.GetSLIValue(Throughput, start, end, logger)
 
 	assert.EqualValues(t, value, 0.0)

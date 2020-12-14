@@ -29,6 +29,7 @@ Please always double check the version of Keptn you are using compared to the ve
 |       0.7.0      | keptn/prometheus-service:0.2.2  |
 |       0.7.1      | keptn/prometheus-service:0.2.2  |
 |       0.7.2      | keptn/prometheus-service:0.2.3  |
+|       0.7.3      | keptn/prometheus-service:0.2.3  |
 
 ## Basic Usage 
 

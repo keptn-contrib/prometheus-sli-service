@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	keptncommon "github.com/keptn/go-utils/pkg/lib/keptn"
+	keptnv2 "github.com/keptn/go-utils/pkg/lib/v0_2_0"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -12,8 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	keptn "github.com/keptn/go-utils/pkg/lib"
 )
 
 const Throughput = "throughput"
@@ -43,12 +43,12 @@ type Handler struct {
 	Stage         string
 	Service       string
 	HTTPClient    *http.Client
-	CustomFilters []*keptn.SLIFilter
+	CustomFilters []*keptnv2.SLIFilter
 	CustomQueries map[string]string
 }
 
 // NewPrometheusHandler returns a new prometheus handler that interacts with the Prometheus REST API
-func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptn.SLIFilter) *Handler {
+func NewPrometheusHandler(apiURL string, project string, stage string, service string, customFilters []*keptnv2.SLIFilter) *Handler {
 	ph := &Handler{
 		ApiURL:        apiURL,
 		Project:       project,
@@ -61,7 +61,8 @@ func NewPrometheusHandler(apiURL string, project string, stage string, service s
 	return ph
 }
 
-func (ph *Handler) GetSLIValue(metric string, start string, end string, logger *keptn.Logger) (float64, error) {
+// GetSLIValue retrieves the specified value via the Prometheus API
+func (ph *Handler) GetSLIValue(metric string, start string, end string, logger keptncommon.LoggerInterface) (float64, error) {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	startUnix, err := parseUnixTimestamp(start)
