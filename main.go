@@ -199,6 +199,7 @@ func getPrometheusApiURL(project string, kubeClient v1.CoreV1Interface, logger *
 
 	// return cluster-internal prometheus URL if no secret has been found
 	if err != nil {
+		logger.Info(err.Error())
 		logger.Info("No external prometheus instance defined for project " + project + ". Using default: http://prometheus-service.monitoring.svc.cluster.local:8080")
 		return "http://prometheus-service.monitoring.svc.cluster.local:8080", nil
 	}
