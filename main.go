@@ -103,16 +103,12 @@ func processEvent(event cloudevents.Event) error {
 	// 1: send .started event
 	var sliResults = []*keptnv2.SLIResult{}
 	if err = sendGetSLIStartedEvent(event, eventData, keptnCtx); err != nil {
-		if err = sendGetSLIFinishedEvent(event, eventData, sliResults, err, keptnCtx); err != nil {
-			return err
-		}
+		return sendGetSLIFinishedEvent(event, eventData, sliResults, err, keptnCtx)
 	}
 
 	// 2: try to fetch metrics
 	if sliResults, err = retrieveMetrics(event, eventData, log); err != nil {
-		if err = sendGetSLIFinishedEvent(event, eventData, sliResults, err, keptnCtx); err != nil {
-			return err
-		}
+		return sendGetSLIFinishedEvent(event, eventData, sliResults, err, keptnCtx)
 	}
 
 	// 3: send .finished event
