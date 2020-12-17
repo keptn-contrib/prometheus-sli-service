@@ -6,9 +6,10 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.3.1
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
+	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/keptn/go-utils v0.6.3-0.20201126154203-d12fe6bf7a06
+	github.com/keptn/go-utils v0.6.3-0.20201217115623-17e6dc4eb089
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
