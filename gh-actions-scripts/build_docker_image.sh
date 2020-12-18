@@ -24,5 +24,3 @@ fi
 
 docker push "${IMAGE}"
 
-# change back to previous directory
-cd -
