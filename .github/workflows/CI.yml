@@ -173,7 +173,7 @@ jobs:
       - id: prepare_manifest
         name: Prepare Build Manifest
         run: |
-          ./writeManifest.sh
+          ./docker/writeManifest.sh
           cat MANIFEST
 
       - id: docker_build
