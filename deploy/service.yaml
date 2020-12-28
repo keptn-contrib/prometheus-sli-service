@@ -17,7 +17,7 @@ spec:
       serviceAccountName: keptn-prometheus-sli-service
       containers:
       - name: prometheus-sli-service
-        image: keptncontrib/prometheus-sli-service:0.2.4-dev
+        image: keptncontrib/prometheus-sli-service:0.3.0-alpha
         ports:
         - containerPort: 8080
         resources:
