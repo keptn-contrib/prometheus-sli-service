@@ -8,12 +8,15 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/keptn/go-utils v0.6.3-0.20201217115623-17e6dc4eb089
+	github.com/keptn/go-utils v0.8.0
+	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
 	golang.org/x/time v0.0.0-20191023065245-6d3f0bb11be5 // indirect
+	google.golang.org/appengine v1.5.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.0.0-20190313235455-40a48860b5ab // indirect

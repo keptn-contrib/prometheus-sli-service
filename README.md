@@ -31,6 +31,7 @@ Please always double check the version of Keptn you are using compared to the ve
 |       0.7.2      | keptncontrib/prometheus-sli-service:0.2.3  |
 |       0.7.3      | keptncontrib/prometheus-sli-service:0.2.3  |
 |    0.8.0-alpha 	 | keptncontrib/prometheus-sli-service:0.3.0-alpha |
+|    0.8.0      	 | keptncontrib/prometheus-sli-service:0.3.0 |
 
 ## Basic Usage 
 
