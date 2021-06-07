@@ -1,3 +1,8 @@
+:warning: The `prometheus-sli-service` has been merged into the `prometheus-service` maintained here: https://github.com/keptn-contrib/prometheus-service 
+Please visit the [prometheus-service](https://github.com/keptn-contrib/prometheus-service) for further developing the functionality of the `prometheus-sli-service`. 
+
+:warning: Due to the merge, this repository has been set to read-only and will be archived in the future.
+
 # Prometheus SLI Service
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/keptn-contrib/prometheus-sli-service)
 [![Build Status](https://travis-ci.org/keptn-contrib/prometheus-sli-service.svg?branch=master)](https://travis-ci.org/keptn-contrib/prometheus-sli-service)
